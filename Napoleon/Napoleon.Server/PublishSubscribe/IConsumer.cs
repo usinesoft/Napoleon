@@ -1,6 +1,6 @@
 ﻿namespace Napoleon.Server.PublishSubscribe;
 
-public interface IConsumer
+public interface IConsumer:IDisposable
 {
     public void Start(string clusterName, string nodeId);
 

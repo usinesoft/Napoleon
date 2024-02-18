@@ -4,7 +4,7 @@ using Napoleon.Server.Messages;
 
 namespace Napoleon.Server.PublishSubscribe.UdpImplementation;
 
-public sealed class Publisher : IPublisher, IDisposable
+public sealed class Publisher : IPublisher
 {
     private IPAddress GroupAddress { get; }
 

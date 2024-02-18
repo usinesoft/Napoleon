@@ -4,7 +4,7 @@ using Napoleon.Server.Messages;
 
 namespace Napoleon.Server.PublishSubscribe.UdpImplementation;
 
-public sealed class Consumer:IConsumer, IDisposable
+public sealed class Consumer:IConsumer
 {
     private readonly UdpClient _listener;
     
@@ -50,11 +50,15 @@ public sealed class Consumer:IConsumer, IDisposable
     }
 
 
-    public Consumer(int broadcastPort, string groupAddress)
+    public Consumer(string groupAddress, int broadcastPort)
     {
         var endpoint = new IPEndPoint(IPAddress.Any, broadcastPort);
         
-        _listener = new(endpoint);
+        _listener = new(AddressFamily.InterNetwork);
+        _listener.ExclusiveAddressUse = false;
+        _listener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        _listener.MulticastLoopback = true;
+        _listener.Client.Bind(endpoint);
         _listener.JoinMulticastGroup(IPAddress.Parse(groupAddress), Ttl);
     }
 

@@ -1,6 +1,8 @@
 using Napoleon.Server.Configuration;
 using Napoleon.Server.Messages;
 using Napoleon.Server.PublishSubscribe.UdpImplementation;
+using Napoleon.Server.Server;
+using static Napoleon.Server.Server.Server;
 
 namespace Napoleon.Tests;
 
@@ -11,8 +13,7 @@ public class UdpTests
     {
         var config = ConfigurationHelper.CreateDefault("test");
 
-        var consumer = new Consumer(config.NetworkConfiguration.BroadcastPort,
-            config.NetworkConfiguration.BroadcastAddress!);
+        var consumer = new Consumer(config.NetworkConfiguration.BroadcastAddress!, config.NetworkConfiguration.BroadcastPort);
 
         consumer.MessageReceived += (sender, args) => { Assert.Fail("No message should have been received"); };
 
@@ -56,8 +57,7 @@ public class UdpTests
     {
         var config = ConfigurationHelper.CreateDefault(consumerCluster);
 
-        using var consumer = new Consumer(config.NetworkConfiguration.BroadcastPort,
-            config.NetworkConfiguration.BroadcastAddress!);
+        using var consumer = new Consumer(config.NetworkConfiguration.BroadcastAddress!, config.NetworkConfiguration.BroadcastPort);
 
         consumer.Start(config.ClusterName!, consumerNode);
 
@@ -85,8 +85,7 @@ public class UdpTests
     {
         var config = ConfigurationHelper.CreateDefault("c1");
 
-        using var consumer = new Consumer(config.NetworkConfiguration.BroadcastPort,
-            config.NetworkConfiguration.BroadcastAddress!);
+        using var consumer = new Consumer(config.NetworkConfiguration.BroadcastAddress!, config.NetworkConfiguration.BroadcastPort);
 
         consumer.Start(config.ClusterName!, "node1");
 
@@ -139,7 +138,59 @@ public class UdpTests
         await Task.Delay(100);
 
         Assert.That(messageReceived, Is.EqualTo(2));
+        
+    }
 
+    
+    [Test]
+    public async Task Leader_election()
+    {
+        var config = ConfigurationHelper.CreateDefault("cx2");
+
+
+        // start the first server
+        var consumer1 = new Consumer(config.NetworkConfiguration.BroadcastAddress!, config.NetworkConfiguration.BroadcastPort);
+        
+        var producer1 = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
+            config.NetworkConfiguration.BroadcastPort);
+
+        
+        using var server1 = new Server.Server.Server(producer1, consumer1);
+        server1.Run(config.ClusterName!);
+
+        await Task.Delay(NodeStatus.HeartBeatFrequencyInMilliseconds + 100);
+
+        Assert.That(server1.MyStatus, Is.EqualTo(StatusInCluster.HomeAlone));
+        Assert.That(server1.NodesAliveInCluster, Is.EqualTo(1));
+
+        // start the second server
+        var consumer2 = new Consumer(config.NetworkConfiguration.BroadcastAddress!, config.NetworkConfiguration.BroadcastPort);
+        
+        var producer2 = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
+            config.NetworkConfiguration.BroadcastPort);
+
+        using var server2 = new Server.Server.Server(producer2, consumer2);
+        server2.Run(config.ClusterName!);
+
+        await Task.Delay(NodeStatus.HeartBeatFrequencyInMilliseconds + 100);
+        
+        Assert.That(server1.NodesAliveInCluster, Is.EqualTo(2));
+        Assert.That(server2.NodesAliveInCluster, Is.EqualTo(2));
+
+        var status = new[] { server1.MyStatus, server2.MyStatus };
+
+        Assert.That(status.Count(x=>x == StatusInCluster.Follower), Is.EqualTo(1));
+        Assert.That(status.Count(x=>x == StatusInCluster.Leader), Is.EqualTo(1));
+
+        // now kill the leader
+        var leader = server1.MyStatus == StatusInCluster.Leader ? server1 : server2;
+        var follower = server1.MyStatus == StatusInCluster.Follower ? server1 : server2;
+
+        leader.Dispose();
+
+        await Task.Delay(NodeStatus.MillisecondsBeforeDead + NodeStatus.HeartBeatFrequencyInMilliseconds + 100);
+
+        Assert.That(follower.MyStatus, Is.EqualTo(StatusInCluster.HomeAlone), "a single node can not be follower");
 
     }
 }
