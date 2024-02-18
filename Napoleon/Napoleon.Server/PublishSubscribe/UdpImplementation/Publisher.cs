@@ -6,10 +6,6 @@ namespace Napoleon.Server.PublishSubscribe.UdpImplementation;
 
 public sealed class Publisher : IPublisher
 {
-    private IPAddress GroupAddress { get; }
-
-    private int GroupPort { get; }
-
     private readonly UdpClient _udpClient;
 
     public Publisher(string groupAddress, int groupPort)
@@ -22,6 +18,10 @@ public sealed class Publisher : IPublisher
 
         _udpClient.JoinMulticastGroup(IPAddress.Parse(groupAddress));
     }
+
+    private IPAddress GroupAddress { get; }
+
+    private int GroupPort { get; }
 
     public void Publish(MessageHeader message)
     {

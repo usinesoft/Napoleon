@@ -4,56 +4,36 @@ using Napoleon.Server.Messages;
 
 namespace Napoleon.Server.PublishSubscribe.UdpImplementation;
 
-public sealed class Consumer:IConsumer
+public sealed class Consumer : IConsumer
 {
-    private readonly UdpClient _listener;
-    
-    private Task? _serverThread;
-    
-    readonly CancellationTokenSource _tokenSource = new();
-
-    private bool _disposed;
-
     /// <summary>
-    /// Time to live (number of accepted hoops)
+    ///     Time to live (number of accepted hoops)
     /// </summary>
     private const int Ttl = 32;
-    
+
     /// <summary>
-    /// Message ids stored to avoid duplicate messages
+    ///     Message ids stored to avoid duplicate messages
     /// </summary>
     private const int HistorySize = 10;
 
     /// <summary>
-    /// Keep the last received message to avoid processing duplicate one
+    ///     Keep the last received message to avoid processing duplicate one
     /// </summary>
     private readonly Queue<int> _alreadyReceived = new();
 
-    bool AlreadyReceived(int messageId)
-    {
-        lock (_alreadyReceived)
-        {
-            return _alreadyReceived.Contains(messageId);
-        }
-    }
+    private readonly UdpClient _listener;
 
-    void StoreInHistory(int messageId)
-    {
-        lock (_alreadyReceived)
-        {
-            _alreadyReceived.Enqueue(messageId);
-            if (_alreadyReceived.Count > HistorySize) // limit the queue size
-            {
-                _alreadyReceived.Dequeue();
-            }
-        }
-    }
+    private readonly CancellationTokenSource _tokenSource = new();
+
+    private bool _disposed;
+
+    private Task? _serverThread;
 
 
     public Consumer(string groupAddress, int broadcastPort)
     {
         var endpoint = new IPEndPoint(IPAddress.Any, broadcastPort);
-        
+
         _listener = new(AddressFamily.InterNetwork);
         _listener.ExclusiveAddressUse = false;
         _listener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -62,7 +42,7 @@ public sealed class Consumer:IConsumer
         _listener.JoinMulticastGroup(IPAddress.Parse(groupAddress), Ttl);
     }
 
-    
+
     public void Start(string clusterName, string nodeId)
     {
         _serverThread = Task.Factory.StartNew(async () =>
@@ -72,7 +52,7 @@ public sealed class Consumer:IConsumer
                 while (!_disposed)
                 {
                     var result = await _listener.ReceiveAsync(_tokenSource.Token);
-                 
+
                     var data = result.Buffer;
 
                     var message = new MessageHeader();
@@ -87,19 +67,14 @@ public sealed class Consumer:IConsumer
 
                         StoreInHistory(message.MessageId);
                         MessageReceived?.Invoke(this, new(message));
-
                     }
-
                 }
             }
             catch (OperationCanceledException)
             {
                 // ignore
             }
-
         }).Result;
-
-        
     }
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
@@ -107,11 +82,29 @@ public sealed class Consumer:IConsumer
     public void Dispose()
     {
         _disposed = true;
-        
+
         _tokenSource.Cancel();
 
         _serverThread?.Wait(TimeSpan.FromMilliseconds(50));
-        
+
         _listener.Dispose();
+    }
+
+    private bool AlreadyReceived(int messageId)
+    {
+        lock (_alreadyReceived)
+        {
+            return _alreadyReceived.Contains(messageId);
+        }
+    }
+
+    private void StoreInHistory(int messageId)
+    {
+        lock (_alreadyReceived)
+        {
+            _alreadyReceived.Enqueue(messageId);
+            if (_alreadyReceived.Count > HistorySize) // limit the queue size
+                _alreadyReceived.Dequeue();
+        }
     }
 }

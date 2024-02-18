@@ -40,6 +40,5 @@ public class MessageTests
         Assert.That(hb2.IsValidHeartbeat());
 
         Assert.That(hb1.ToString(), Is.EqualTo(hb2.ToString()));
-
     }
 }

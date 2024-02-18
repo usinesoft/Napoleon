@@ -1,14 +1,10 @@
-﻿namespace Napoleon.Server.Configuration
+﻿namespace Napoleon.Server.Configuration;
+
+/// <summary>
+///     Tcp contact information
+/// </summary>
+public class PartnerConfiguration
 {
-    /// <summary>
-    /// Tcp contact information
-    /// </summary>
-    public class PartnerConfiguration
-    {
-        public string? Host { get; set; }
-        public int TcpPort { get; set; }
-
-    }
-
-
+    public string? Host { get; set; }
+    public int TcpPort { get; set; }
 }

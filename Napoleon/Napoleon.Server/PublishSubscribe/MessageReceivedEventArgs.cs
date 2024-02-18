@@ -2,7 +2,7 @@
 
 namespace Napoleon.Server.PublishSubscribe;
 
-public class MessageReceivedEventArgs:EventArgs
+public class MessageReceivedEventArgs : EventArgs
 {
     public MessageReceivedEventArgs(MessageHeader messageHeader)
     {
