@@ -12,7 +12,6 @@ public class MessageTests
             MessageId = 123,
             Cluster = "test",
             MessageType = MessageType.Heartbeat,
-            PayloadSize = 400,
             SenderNode = "node123"
         };
 

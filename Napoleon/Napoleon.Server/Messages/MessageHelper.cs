@@ -7,7 +7,7 @@ public static class MessageHelper
         return new()
         {
             Cluster = cluster, SenderNode = node, MessageType = MessageType.Heartbeat,
-            MessageId = Guid.NewGuid().GetHashCode(), PayloadSize = 0
+            MessageId = Guid.NewGuid().GetHashCode()
         };
     }
 

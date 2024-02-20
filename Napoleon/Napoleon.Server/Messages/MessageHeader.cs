@@ -24,7 +24,9 @@ public class MessageHeader : IAsRawBytes
     /// <summary>
     ///     Optional payload size (zero for heartbeat messages)
     /// </summary>
-    public uint PayloadSize { get; set; }
+    public int PayloadSize => Payload.Length;
+
+    public byte[] Payload { get; set; }= Array.Empty<byte>();
 
     public byte[] ToRawBytes()
     {
@@ -52,7 +54,17 @@ public class MessageHeader : IAsRawBytes
         SenderNode = reader.ReadString();
         SenderStatus = (StatusInCluster)reader.ReadInt32();
         MessageType = (MessageType)reader.ReadInt32();
-        PayloadSize = reader.ReadUInt32();
+        
+        var payloadSize = reader.ReadInt32();
+        
+        if (payloadSize > 0)
+        {
+            Payload = reader.ReadBytes(PayloadSize);
+        }
+        else
+        {
+            Payload = Array.Empty<byte>();
+        }
     }
 
     public override string ToString()
