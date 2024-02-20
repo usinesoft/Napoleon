@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Napoleon.Server.SharedData;
 
@@ -114,6 +115,49 @@ public class DataStoreTests
         var json2 = JsonSerializer.Serialize(doc2, new JsonSerializerOptions{WriteIndented = true});
 
         Assert.That(json, Is.EqualTo(json2));
+
+        var (_, found) = store2.TryGetScalarValue<int>("all", "port");
+        Assert.That(found, Is.False, "a deleted value should not be found");
+
+        var (activatePing, found1) = store2.TryGetScalarValue<bool>("all", "activate_ping");
+        Assert.That(found1, Is.True);
+        Assert.That(activatePing, Is.True);
+        
+
+        var ids = store2.TryGetValue<int[]>("config", "ids");
+        CollectionAssert.AreEqual(ids, new[]{4, 15, 88});
+
+    }
+
+    [Test]
+    public void Get_changes()
+    {
+        var store = new DataStore();
+
+        store.PutValue("A", "a", true); // version 1
+        store.PutValue("A", "a1", true);// version 2
+        store.PutValue("B", "b", "what a wonderful world"); // version 3
+        store.PutValue("B", "b", "the sky is blue"); //version 4
+
+        Assert.That(store.GlobalVersion, Is.EqualTo(4));
+
+        var changes = store.GetChangesSince(0);
+        Assert.That(changes.Count, Is.EqualTo(3));
+
+        changes = store.GetChangesSince(2);
+        Assert.That(changes.Count, Is.EqualTo(1));
+        Assert.That(changes[0].Value.GetString(), Is.EqualTo("the sky is blue"));
+
+        store.DeleteValue("B", "b");
+
+        Assert.That(store.GlobalVersion, Is.EqualTo(5));
+        changes = store.GetChangesSince(2);
+        Assert.That(changes.Count, Is.EqualTo(1));
+        Assert.True(changes[0].IsDeleted);
+        Assert.That(changes[0].Value.ValueKind, Is.EqualTo(JsonValueKind.Undefined));
+
+
+
     }
 
 }

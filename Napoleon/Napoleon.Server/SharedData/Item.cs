@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Xml.Schema;
 
 namespace Napoleon.Server.SharedData;
 
@@ -33,5 +34,16 @@ public class Item
     /// The <see cref="Value"/> is deleted physically to release memory
     /// </summary>
     public bool IsDeleted { get; set; }
-    
+
+    public Item Clone()
+    {
+        return new Item
+        {
+            Value = Value.ValueKind == JsonValueKind.Undefined?  default : Value.Clone() , // undefined is not cloneable
+            Collection = Collection,
+            IsDeleted = IsDeleted,
+            Key = Key,
+            Version = Version
+        };
+    }
 }

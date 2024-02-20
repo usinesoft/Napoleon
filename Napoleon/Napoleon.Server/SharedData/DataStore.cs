@@ -1,11 +1,11 @@
-﻿using System.Text.Json;
+﻿using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Napoleon.Server.SharedData;
 
-public class DataStore
+public partial class DataStore
 {
-
     private readonly object _sync = new();
 
     /// <summary>
@@ -20,90 +20,33 @@ public class DataStore
 
 
     /// <summary>
-    /// Convert all the information contained into a single document
+    /// Verify that the global version is present on a key/value (and exactly one).
+    /// Every key/value should have a unique version
     /// </summary>
-    /// <returns></returns>
-    public JsonDocument SerializeToDocument()
+    private void CheckConsistency()
     {
-        JsonObject json = new JsonObject { { "GlobalVersion", GlobalVersion } };
-
-        foreach (var collectionContent in Items.Values.GroupBy(x=>x.Collection))
+        var maxVersion = 0;
+        HashSet<int> versionsOnKeys = new();
+        foreach (var item in Items)
         {
-            var collection = new JsonObject();
-            foreach (var item in collectionContent)
+            var version = item.Value.Version;
+            var newOne = versionsOnKeys.Add(version);
+            if (!newOne)
             {
-                
-                var versioned = new JsonObject
-                {
-                    { "version", item.Version }
-                };
-
-                var asNode = item.IsDeleted? null: item.Value.Deserialize<JsonNode>();
-                if (asNode != null)
-                {
-                    versioned.Add("value", asNode);
-                }
-
-                collection.Add(item.Key!, versioned);
-
+                throw new FormatException($"The version {version} found more than once.");
             }
 
-            json.Add(collectionContent.Key!, collection);
-        }
-
-
-        return JsonSerializer.SerializeToDocument(json);
-    }
-
-    public void DeserializeFromDocument(JsonDocument jDoc)
-    {
-        // reset the content
-        GlobalVersion = 0;
-        Items.Clear();
-
-        foreach (var itemLevel0 in jDoc.RootElement.EnumerateObject())
-        {
-            if (itemLevel0.Name == "GlobalVersion")
+            if (version > maxVersion)
             {
-                GlobalVersion = itemLevel0.Value.GetInt32();
-            }
-            else // a collection name
-            {
-                var collectionName = itemLevel0.Name;
-                
-                
-                var collection = itemLevel0.Value;
-                foreach (var kv in collection.EnumerateObject())
-                {
-                    var keyName = kv.Name;
-                    var valueAndVersion = kv.Value.EnumerateObject().ToArray();
-                    if (valueAndVersion.Length < 1 || valueAndVersion[0].Name != "version")
-                    {
-                        throw new FormatException("Invalid data store json");
-                    }
-                    var version = valueAndVersion[0].Value.GetInt32();
-
-                    JsonElement? value = null;
-                    if (valueAndVersion.Length == 2 && valueAndVersion[1].Name == "value")
-                    {
-                        value = valueAndVersion[1].Value;
-                    }
-
-                    var k = new GlobalKey(collectionName, keyName);
-                    Items[k] = new Item
-                    {
-                        Collection = collectionName,
-                        Value = value ?? default,
-                        Version = version,
-                        IsDeleted = !value.HasValue,
-                        Key = keyName
-                    };
-                }
-
+                maxVersion = version;
             }
         }
 
-        
+        if (GlobalVersion != maxVersion)
+        {
+            throw new FormatException(
+                $"Global version {GlobalVersion} different from the most recent version of a key/value {maxVersion}.");
+        }
     }
 
     public void PutSimpleValue(string collection, string key, string value)
@@ -137,7 +80,6 @@ public class DataStore
 
     public void PutValue(string collection, string key, JsonElement value)
     {
-
         lock (_sync)
         {
             GlobalVersion++;
@@ -213,17 +155,14 @@ public class DataStore
         lock (_sync)
         {
             if (!Items.TryGetValue(k, out var item) || item.IsDeleted) return new(default, false);
-        
+
             var value = item.Value.Deserialize<T>();
             return new(value, true);
         }
-
-        
     }
 
     public bool DeleteValue(string collection, string key)
     {
-
         var k = new GlobalKey(collection, key);
 
         lock (_sync)
@@ -239,7 +178,28 @@ public class DataStore
 
             return true;
         }
-
     }
 
+    public IList<Item> GetChangesSince(int baseVersion)
+    {
+        if (baseVersion >= GlobalVersion)
+        {
+            throw new ArgumentException($"Can not get changes: last version {GlobalVersion} is less than the base version {baseVersion}");
+        }
+
+        var changes = new List<Item>();
+
+        lock (_sync)
+        {
+            foreach (var item in Items.Select(x=> x.Value))
+            {
+                if (item.Version > baseVersion)
+                {
+                    changes.Add(item.Clone());
+                }
+            }
+        }
+
+        return changes.OrderBy(x=>x.Version).ToList();
+    }
 }
