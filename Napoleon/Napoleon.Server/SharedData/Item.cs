@@ -46,4 +46,32 @@ public class Item
             Version = Version
         };
     }
+
+    public void CheckValid()
+    {
+        if (string.IsNullOrEmpty(Collection))
+        {
+            throw new FormatException("Empty collection name");
+        }
+
+        if (string.IsNullOrEmpty(Key))
+        {
+            throw new FormatException("Empty key name");
+        }
+
+        if (Version == 0)
+        {
+            throw new FormatException("Version can not be 0 on a change");
+        }
+
+        if (IsDeleted && Value.ValueKind != JsonValueKind.Undefined)
+        {
+            throw new FormatException("Value must be undefined on a delete change");
+        }
+
+        if (!IsDeleted && Value.ValueKind == JsonValueKind.Undefined)
+        {
+            throw new FormatException("Value can be undefined only on a delete change");
+        }
+    }
 }

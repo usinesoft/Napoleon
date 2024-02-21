@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using Napoleon.Server.SharedData;
 
@@ -156,8 +155,64 @@ public class DataStoreTests
         Assert.True(changes[0].IsDeleted);
         Assert.That(changes[0].Value.ValueKind, Is.EqualTo(JsonValueKind.Undefined));
 
+        
+    }
 
+    private static bool DataStoresAreIdentical(DataStore store1, DataStore store2)
+    {
+        var doc1 = store1.SerializeToDocument();
+        var json1 = JsonSerializer.Serialize(doc1, new JsonSerializerOptions{WriteIndented = true});
 
+        var doc2 = store2.SerializeToDocument();
+        var json2 = JsonSerializer.Serialize(doc2, new JsonSerializerOptions{WriteIndented = true});
+
+        return json1 == json2;
+    }
+
+    [Test]
+    public void Data_stores_synchronization()
+    {
+        var masterData = new DataStore();
+        
+        var followerData = new DataStore();
+
+        Assert.That(DataStoresAreIdentical(masterData, followerData));
+
+        // apply the same change to both
+        var change1 = new Item { Collection = "A", Key = "a", Version = 1, Value = JsonSerializer.SerializeToElement(15) };
+        bool applied1ToMaster = masterData.TryApplyAsyncChange(change1);
+        Assert.That(applied1ToMaster);
+        bool applied1ToFollower = followerData.TryApplyAsyncChange(change1);
+        Assert.That(applied1ToFollower);
+
+        Assert.That(DataStoresAreIdentical(masterData, followerData));
+
+        // apply a new change only to master
+        var change2 = new Item { Collection = "A", Key = "a", Version = 2, Value = JsonSerializer.SerializeToElement(16) };
+        var applied2ToMaster = masterData.TryApplyAsyncChange(change2);
+        Assert.That(applied2ToMaster);
+        Assert.That(!DataStoresAreIdentical(masterData, followerData));
+        Assert.That(masterData.GlobalVersion, Is.EqualTo(2));
+        Assert.That(followerData.GlobalVersion, Is.EqualTo(1));
+
+        // apply again a new change only to master
+        var change3 = new Item { Collection = "A", Key = "a", Version = 3, Value = JsonSerializer.SerializeToElement(17) };
+        var applied3ToMaster = masterData.TryApplyAsyncChange(change3);
+        Assert.That(applied3ToMaster);
+        Assert.That(!DataStoresAreIdentical(masterData, followerData));
+        Assert.That(masterData.GlobalVersion, Is.EqualTo(3));
+        Assert.That(followerData.GlobalVersion, Is.EqualTo(1));
+
+        // try to apply change3 to the follower. That should fail as it is out of order
+        // In real life that can happen if a messaged was missed or received out of order
+        var applied3ToFollower = followerData.TryApplyAsyncChange(change3);
+        Assert.False(applied3ToFollower);
+        Assert.That(followerData.GlobalVersion, Is.EqualTo(1), "No version change if failed to apply change");
+
+        // now get the full sequence of changes from the master and apply changes.
+        var changes = masterData.GetChangesSince(followerData.GlobalVersion);
+        followerData.ApplyChanges(changes);
+        Assert.That(DataStoresAreIdentical(masterData, followerData));
     }
 
 }

@@ -202,4 +202,47 @@ public partial class DataStore
 
         return changes.OrderBy(x=>x.Version).ToList();
     }
+
+
+    /// <summary>
+    /// Individual changes can be applied only in order to guarantee data consistency.
+    /// They are usually received through an async channel that does not guarantee that the messages are delivered in-order
+    /// </summary>
+    /// <param name="change"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public bool TryApplyAsyncChange(Item change)
+    {
+        if (change == null) throw new ArgumentNullException(nameof(change));
+        change.CheckValid();
+
+        if (GlobalVersion != change.Version -1) // strong constraint
+            return false;
+
+        Items[new GlobalKey(change.Collection!, change.Key!)] = change;
+        GlobalVersion=change.Version;
+
+        return true;
+    }
+
+
+    /// <summary>
+    /// Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
+    /// </summary>
+    /// <param name="changes"></param>
+    public void ApplyChanges(IEnumerable<Item> changes)
+    {
+        foreach (var change in changes)
+        {
+            change.CheckValid();
+
+            if (change.Version <= GlobalVersion)
+            {
+                throw new NotSupportedException($"An ordered sequence of changes has been received that is inconsistent with the data-store version.");
+            }
+
+            Items[new GlobalKey(change.Collection!, change.Key!)] = change;
+            GlobalVersion=change.Version;
+        }
+    }
 }
