@@ -95,7 +95,7 @@ public sealed class Consumer : IConsumer
         lock (_alreadyReceived)
         {
             return _alreadyReceived.Contains(messageId);
-        }
+        } 
     }
 
     private void StoreInHistory(int messageId)

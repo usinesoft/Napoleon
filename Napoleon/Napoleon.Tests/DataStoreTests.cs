@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Napoleon.Server.Messages;
 using Napoleon.Server.SharedData;
 
 namespace Napoleon.Tests;
@@ -213,6 +214,17 @@ public class DataStoreTests
         var changes = masterData.GetChangesSince(followerData.GlobalVersion);
         followerData.ApplyChanges(changes);
         Assert.That(DataStoresAreIdentical(masterData, followerData));
+
+        // fully synchronize an empty data store using messages
+        var newcomer = new DataStore();
+        var all = followerData.GetChangesSince(0);// all data
+
+        var syncMessage = MessageHelper.CreateDataSyncMessage("tst", "node01", all);
+        Assert.That(syncMessage.MessageType, Is.EqualTo(MessageType.DataSync));
+        var changesFromMessage = syncMessage.FromMessage().Items;
+        newcomer.ApplyChanges(changesFromMessage);
+
+        Assert.That(DataStoresAreIdentical(newcomer, followerData));
     }
 
 }

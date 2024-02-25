@@ -22,6 +22,21 @@ public class MessageHeader : IAsRawBytes
     public MessageType MessageType { get; set; }
 
     /// <summary>
+    /// Ip address of the sender
+    /// </summary>
+    public string? SenderIp { get; set; }
+
+    /// <summary>
+    /// TCP port used by the clients to connect to the sender
+    /// </summary>
+    public int SenderPortForClients { get; set; }
+
+    /// <summary>
+    /// Period between sender heart-beats
+    /// </summary>
+    public  int HeartbeatPeriodInMilliseconds { get; set; }
+    
+    /// <summary>
     ///     Optional payload size (zero for heartbeat messages)
     /// </summary>
     public int PayloadSize => Payload.Length;
@@ -38,6 +53,10 @@ public class MessageHeader : IAsRawBytes
         writer.Write(SenderNode ?? string.Empty);
         writer.Write((int)SenderStatus);
         writer.Write((int)MessageType);
+        writer.Write(SenderIp??string.Empty);
+        writer.Write(SenderPortForClients);
+        writer.Write(HeartbeatPeriodInMilliseconds);
+
         writer.Write(PayloadSize);
         writer.Flush();
 
@@ -54,17 +73,13 @@ public class MessageHeader : IAsRawBytes
         SenderNode = reader.ReadString();
         SenderStatus = (StatusInCluster)reader.ReadInt32();
         MessageType = (MessageType)reader.ReadInt32();
-        
+        SenderIp = reader.ReadString();
+        SenderPortForClients  = reader.ReadInt32();
+        HeartbeatPeriodInMilliseconds =  reader.ReadInt32();
+
         var payloadSize = reader.ReadInt32();
         
-        if (payloadSize > 0)
-        {
-            Payload = reader.ReadBytes(PayloadSize);
-        }
-        else
-        {
-            Payload = Array.Empty<byte>();
-        }
+        Payload = payloadSize > 0 ? reader.ReadBytes(PayloadSize) : Array.Empty<byte>();
     }
 
     public override string ToString()

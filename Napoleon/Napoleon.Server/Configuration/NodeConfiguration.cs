@@ -11,13 +11,25 @@ public class NodeConfiguration
     public string? ClusterName { get; set; }
 
 
-    public static int HeartbeatFrequencyInMilliseconds { get; set; } = 500;
+    /// <summary>
+    /// Nodes may have different heart-beat periods
+    /// </summary>
+    public int HeartbeatPeriodInMilliseconds { get; set; }
 
     /// <summary>
-    ///     Time before a node without heartbeat is declared dead
+    /// How to generate an unique node id
     /// </summary>
-    public static int TimeBeforeDeathInMilliseconds { get; set; } = 1020;
+    public NodeIdPolicy NodeIdPolicy { get; set; }
 
+    /// <summary>
+    /// Explicit node id. Mandatory if <see cref="NodeIdPolicy"/> is ExplicitName.
+    /// Not required otherwise (ignored if filled)
+    /// </summary>
+    public string? NodeId { get; set; }
 
+ 
+    /// <summary>
+    /// Network configuration for clients and server-server communication
+    /// </summary>
     public NetworkConfiguration NetworkConfiguration { get; set; } = new();
 }

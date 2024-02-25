@@ -5,20 +5,33 @@ public class NetworkConfiguration
     /// <summary>
     ///     Group address for UDP multicast
     /// </summary>
-    public string? BroadcastAddress { get; set; }
+    public string? MulticastAddress { get; set; }
 
     /// <summary>
     ///     Port for UDP multicast
     /// </summary>
-    public int BroadcastPort { get; set; }
+    public int MulticastPort { get; set; }
 
     /// <summary>
-    ///     My own optional TCP port (0 means dynamically allocate)
+    ///     My own TCP port 
     /// </summary>
-    public int? MyTcpPort { get; set; }
+    public int TcpClientPort { get; set; }
 
     /// <summary>
-    ///     Nodes in the same cluster that can be contacted only by TCP
+    /// Either TCP or UDP multicast 
     /// </summary>
-    public IList<PartnerConfiguration> PartnerConfigurations { get; set; } = new List<PartnerConfiguration>();
+    public NotificationProtocol ServerToServerProtocol { get; set; }
+
+    /// <summary>
+    ///  Nodes in the same cluster. Must be filled if <see cref="ServerToServerProtocol"/> is TCP
+    ///  They are specified as a list of host:port
+    /// </summary>
+    public string[] ServerLists { get; set; } = Array.Empty<string>();
+
+}
+
+public enum NotificationProtocol
+{
+    UdpMulticast,
+    Tcp
 }

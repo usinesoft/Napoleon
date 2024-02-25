@@ -12,8 +12,8 @@ public class UdpTests
     {
         var config = ConfigurationHelper.CreateDefault("test");
 
-        var consumer = new Consumer(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var consumer = new Consumer(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
         consumer.MessageReceived += (_, _) => { Assert.Fail("No message should have been received"); };
 
@@ -30,10 +30,10 @@ public class UdpTests
     {
         var config = ConfigurationHelper.CreateDefault("test");
 
-        var producer = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var producer = new Publisher(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
-        Assert.DoesNotThrow(() => { producer.Publish(MessageHelper.CreateHeartbeat("test", "node01")); });
+        Assert.DoesNotThrow(() => { producer.Publish(MessageHelper.CreateHeartbeat(config, "node01", StatusInCluster.Follower, Server.Server.GetLocalIpAddress())); });
 
 
         producer.Dispose();
@@ -56,12 +56,12 @@ public class UdpTests
     public async Task Publish_and_consume(string publisherCluster, string publisherNode, string consumerCluster,
         string consumerNode, bool shouldHaveReceivedMessage)
     {
-        var config = ConfigurationHelper.CreateDefault(consumerCluster);
+        var consumerConfig = ConfigurationHelper.CreateDefault(consumerCluster);
 
-        using var consumer = new Consumer(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        using var consumer = new Consumer(consumerConfig.NetworkConfiguration.MulticastAddress!,
+            consumerConfig.NetworkConfiguration.MulticastPort);
 
-        consumer.Start(config.ClusterName!, consumerNode);
+        consumer.Start(consumerConfig.ClusterName!, consumerNode);
 
         var messageReceived = false;
 
@@ -72,10 +72,11 @@ public class UdpTests
             messageReceived = true;
         };
 
-        using var producer = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var producerConfig = ConfigurationHelper.CreateDefault(publisherCluster);
+        using var producer = new Publisher(producerConfig.NetworkConfiguration.MulticastAddress!,
+            producerConfig.NetworkConfiguration.MulticastPort);
 
-        producer.Publish(MessageHelper.CreateHeartbeat(publisherCluster, publisherNode));
+        producer.Publish(MessageHelper.CreateHeartbeat(producerConfig, publisherNode,StatusInCluster.Follower, Server.Server.GetLocalIpAddress()));
 
         await Task.Delay(100);
 
@@ -87,8 +88,8 @@ public class UdpTests
     {
         var config = ConfigurationHelper.CreateDefault("c1");
 
-        using var consumer = new Consumer(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        using var consumer = new Consumer(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
         consumer.Start(config.ClusterName!, "node1");
 
@@ -101,8 +102,8 @@ public class UdpTests
             messageReceived++;
         };
 
-        using var producer = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        using var producer = new Publisher(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
         producer.Publish(new()
         {
@@ -151,32 +152,32 @@ public class UdpTests
 
 
         // start the first server
-        var consumer1 = new Consumer(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var consumer1 = new Consumer(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
-        var producer1 = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var producer1 = new Publisher(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
 
-        using var server1 = new Server.Server(producer1, consumer1);
-        server1.Run(config.ClusterName!);
+        using var server1 = new Server.Server(producer1, consumer1, config);
+        server1.Run();
 
-        await Task.Delay(NodeConfiguration.HeartbeatFrequencyInMilliseconds + 100);
+        await Task.Delay(config.HeartbeatPeriodInMilliseconds + 100);
 
         Assert.That(server1.MyStatus, Is.EqualTo(StatusInCluster.HomeAlone));
         Assert.That(server1.NodesAliveInCluster, Is.EqualTo(1));
 
         // start the second server
-        var consumer2 = new Consumer(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var consumer2 = new Consumer(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
-        var producer2 = new Publisher(config.NetworkConfiguration.BroadcastAddress!,
-            config.NetworkConfiguration.BroadcastPort);
+        var producer2 = new Publisher(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
 
-        using var server2 = new Server.Server(producer2, consumer2);
-        server2.Run(config.ClusterName!);
+        using var server2 = new Server.Server(producer2, consumer2, config);
+        server2.Run();
 
-        await Task.Delay(NodeConfiguration.HeartbeatFrequencyInMilliseconds + 100);
+        await Task.Delay(config.HeartbeatPeriodInMilliseconds + 100);
 
         Assert.That(server1.NodesAliveInCluster, Is.EqualTo(2));
         Assert.That(server2.NodesAliveInCluster, Is.EqualTo(2));
@@ -192,8 +193,7 @@ public class UdpTests
 
         leader.Dispose();
 
-        await Task.Delay(NodeConfiguration.TimeBeforeDeathInMilliseconds +
-                         NodeConfiguration.HeartbeatFrequencyInMilliseconds + 100);
+        await Task.Delay((int)(config.HeartbeatPeriodInMilliseconds * (Constants.HearbeatsLostBeforeDeath + 1) + 100));
 
         Assert.That(follower.MyStatus, Is.EqualTo(StatusInCluster.HomeAlone), "a single node can not be follower");
     }

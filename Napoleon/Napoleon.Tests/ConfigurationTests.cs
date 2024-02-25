@@ -1,4 +1,5 @@
 using Napoleon.Server.Configuration;
+using System.Text.Json;
 
 namespace Napoleon.Tests;
 
@@ -9,7 +10,7 @@ public class ConfigurationTests
     {
         var cfg = ConfigurationHelper.CreateDefault("test");
 
-        Assert.That(cfg.CheckConfiguration, Is.True, "the default configuration is not valid");
+        Assert.DoesNotThrow(cfg.CheckConfiguration, "the default configuration is not valid");
     }
 
     [Test]
@@ -17,15 +18,15 @@ public class ConfigurationTests
     {
         var empty = new NodeConfiguration();
 
-        Assert.That(empty.CheckConfiguration, Is.False, "empty configuration should not be valid");
+        Assert.Throws<ArgumentException>(()=>empty.CheckConfiguration(), "empty configuration should not be valid");
 
         var withCluster = new NodeConfiguration
         {
             ClusterName = "my cluster"
         };
 
-        Assert.That(withCluster.CheckConfiguration, Is.False,
-            "configuration without network information should not be valid");
+        Assert.Throws<ArgumentException>(()=>withCluster.CheckConfiguration(), "empty configuration should not be valid");
+
     }
 
     [Test]
@@ -34,28 +35,46 @@ public class ConfigurationTests
         var invalidGroupAddress = new NodeConfiguration
         {
             ClusterName = "01",
-            NetworkConfiguration = { BroadcastAddress = "220.0.0.12", BroadcastPort = 8888 }
+            NetworkConfiguration = { MulticastAddress = "220.0.0.12", MulticastPort = 8888 }
         };
 
-        Assert.That(invalidGroupAddress.CheckConfiguration, Is.False,
+        Assert.Throws<ArgumentException>(()=>invalidGroupAddress.CheckConfiguration(),
             "configuration with invalid group address should not be valid");
 
         var invalidGroupPort = new NodeConfiguration
         {
             ClusterName = "01",
-            NetworkConfiguration = { BroadcastAddress = "225.0.0.12", BroadcastPort = 0 }
+            NetworkConfiguration = { MulticastAddress = "225.0.0.12", MulticastPort = 0 }
         };
 
-        Assert.That(invalidGroupPort.CheckConfiguration, Is.False,
-            "configuration with invalid group port should not be valid");
+        Assert.Throws<ArgumentException>(()=>invalidGroupPort.CheckConfiguration(),
+            "configuration with invalid group address should not be valid");
 
         var validMulticastConfig = new NodeConfiguration
         {
             ClusterName = "01",
-            NetworkConfiguration = { BroadcastAddress = "225.0.0.12", BroadcastPort = 7878 }
+            NetworkConfiguration = { MulticastAddress = "225.0.0.12", MulticastPort = 7878 }
         };
 
-        Assert.That(validMulticastConfig.CheckConfiguration, Is.True,
+        Assert.DoesNotThrow(validMulticastConfig.CheckConfiguration, 
             "configuration with valid multicast group should be valid");
+    }
+
+    [Test]
+    public void Configuration_is_serializable()
+    {
+        var cfg = new NodeConfiguration
+        {
+            ClusterName = "PROD", NetworkConfiguration = new()
+            {
+                MulticastPort = 50501,
+                MulticastAddress = "224.101.102.103",
+                TcpClientPort = 50601,
+            }
+        };
+
+        var json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions{WriteIndented = true,DictionaryKeyPolicy = JsonNamingPolicy.CamelCase});
+
+        Assert.False(string.IsNullOrWhiteSpace(json));
     }
 }

@@ -1,3 +1,5 @@
+using Napoleon.Server;
+using Napoleon.Server.Configuration;
 using Napoleon.Server.Messages;
 
 namespace Napoleon.Tests;
@@ -30,7 +32,8 @@ public class MessageTests
     [Test]
     public void Generate_and_test_valid_heartbeat_messages()
     {
-        var hb1 = MessageHelper.CreateHeartbeat("test", Guid.NewGuid().ToString());
+        var cfg = ConfigurationHelper.CreateDefault("test");
+        var hb1 = MessageHelper.CreateHeartbeat(cfg, Guid.NewGuid().ToString(), StatusInCluster.Follower, Server.Server.GetLocalIpAddress());
 
         Assert.That(hb1.IsValidHeartbeat());
 
