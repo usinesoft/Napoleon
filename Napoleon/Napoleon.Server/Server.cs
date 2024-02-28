@@ -157,6 +157,14 @@ public sealed class Server : IDisposable
                 MyStatus = noOtherLeader ? StatusInCluster.Leader : StatusInCluster.Candidate;
             else
                 MyStatus = StatusInCluster.Follower;
+
+            // cleanup long dead nodes
+            HashSet<string> nodesToForget = new(_clusterState.Where(x=>x.Value.IsForgotten).Select(x=>x.Key));
+            foreach (var node in nodesToForget)
+            {
+                _clusterState.Remove(node);
+            }
+
         }
     }
 }

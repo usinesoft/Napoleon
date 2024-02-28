@@ -1,11 +1,26 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Napoleon.Server.Configuration;
 
+
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(NodeConfiguration))]
+internal partial class SourceGenerationContext : JsonSerializerContext
+{
+}
+
 public static class ConfigurationHelper
 {
+
+    static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,PropertyNameCaseInsensitive = true,ReadCommentHandling = JsonCommentHandling.Skip,
+        TypeInfoResolver = SourceGenerationContext.Default, Converters = { new JsonStringEnumConverter() }
+    };
+
     public static NodeConfiguration CreateDefault(string clusterName)
     {
         return new()
@@ -26,8 +41,10 @@ public static class ConfigurationHelper
     {
         if (!File.Exists(configFilePath)) { return null; }
 
+        
         using var stream = File.OpenRead(configFilePath);
-        return JsonSerializer.Deserialize<NodeConfiguration>(stream);
+        
+        return JsonSerializer.Deserialize<NodeConfiguration>(stream, Options);
     }
 
 

@@ -29,16 +29,14 @@ public class DataStoreTests
         Assert.That(store.GlobalVersion, Is.EqualTo(1));
 
         value = store.TryGetValue("config", "activate");
-        Assert.That(value.HasValue);
-        Assert.That(value!.Value.ValueKind, Is.EqualTo(JsonValueKind.True));
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.True));
 
         // update the value
         store.PutSimpleValue("config", "activate", false);
         Assert.That(store.GlobalVersion, Is.EqualTo(2));
 
         value = store.TryGetValue("config", "activate");
-        Assert.That(value.HasValue);
-        Assert.That(value!.Value.ValueKind, Is.EqualTo(JsonValueKind.False));
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.False));
         (bool bv, bool found )=  store.TryGetScalarValue<bool>("config", "activate");
         Assert.That(bv, Is.False);
         Assert.That(found, Is.True);
@@ -48,32 +46,28 @@ public class DataStoreTests
         Assert.That(store.GlobalVersion, Is.EqualTo(3));
 
         value = store.TryGetValue("config", "max_retries");
-        Assert.That(value.HasValue);
-        Assert.That(value!.Value.ValueKind, Is.EqualTo(JsonValueKind.Number));
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Number));
 
         // float value
         store.PutValue("config", "pi", 3.14);
         Assert.That(store.GlobalVersion, Is.EqualTo(4));
 
         value = store.TryGetValue("config", "pi");
-        Assert.That(value.HasValue);
-        Assert.That(value!.Value.ValueKind, Is.EqualTo(JsonValueKind.Number));
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Number));
 
         // object value
         store.PutValue("config", "origin", new{X=1, Y=5});
         Assert.That(store.GlobalVersion, Is.EqualTo(5));
 
         value = store.TryGetValue("config", "origin");
-        Assert.That(value.HasValue);
-        Assert.That(value!.Value.ValueKind, Is.EqualTo(JsonValueKind.Object));
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Object));
 
         // array value
         store.PutValue("config", "array", new[]{1,2,3});
         Assert.That(store.GlobalVersion, Is.EqualTo(6));
 
         value = store.TryGetValue("config", "array");
-        Assert.That(value.HasValue);
-        Assert.That(value!.Value.ValueKind, Is.EqualTo(JsonValueKind.Array));
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Array));
         var result = store.TryGetValue<int[]>("config", "array");
         Assert.IsNotNull(result);
         CollectionAssert.AreEqual(result, new[]{1,2,3});

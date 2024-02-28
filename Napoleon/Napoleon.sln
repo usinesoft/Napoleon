@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Napoleon.Server", "Napoleon
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Napoleon.Tests", "Napoleon.Tests\Napoleon.Tests.csproj", "{FDFBDC52-EBD1-4566-9A0A-DEBC6745A8D7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkBenchmark", "NetworkBenchmark\NetworkBenchmark.csproj", "{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{FDFBDC52-EBD1-4566-9A0A-DEBC6745A8D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FDFBDC52-EBD1-4566-9A0A-DEBC6745A8D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FDFBDC52-EBD1-4566-9A0A-DEBC6745A8D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

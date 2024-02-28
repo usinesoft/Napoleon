@@ -37,4 +37,10 @@ public class NodeStatus
     
     public bool IsAlive => (DateTimeOffset.Now - LastHeartbeat).TotalMilliseconds <
                            HeartbeatPeriodInMilliseconds * Constants.HearbeatsLostBeforeDeath;
+
+    /// <summary>
+    /// In multicast mode if a node is dead for a long time forget it
+    /// </summary>
+    public bool IsForgotten => (DateTimeOffset.Now - LastHeartbeat).TotalMilliseconds >
+                           HeartbeatPeriodInMilliseconds * Constants.HearbeatsLostBeforeDeath * 10;
 }

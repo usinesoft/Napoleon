@@ -133,11 +133,6 @@ internal static class Program
             await Task.Delay(config.HeartbeatPeriodInMilliseconds * 2);
             
             
-
-            //var shouldStop = false;
-            
-            //Console.CancelKeyPress += (_, _) => { shouldStop = true; };
-
             await ServerStatusToConsole(server, config);
             
             Console.WriteLine("Stopping");

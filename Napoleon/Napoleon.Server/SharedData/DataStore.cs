@@ -100,12 +100,12 @@ public partial class DataStore
 
 
     /// <summary>
-    /// Get as json
+    /// Returns the value as <see cref="JsonElement"/>. If the value is not fount the returned JSonElement has ValueKind = Undefined
     /// </summary>
     /// <param name="collection"></param>
     /// <param name="key"></param>
     /// <returns></returns>
-    public JsonElement? TryGetValue(string collection, string key)
+    public JsonElement TryGetValue(string collection, string key)
     {
         var k = new GlobalKey(collection, key);
         lock (_sync)
@@ -116,7 +116,7 @@ public partial class DataStore
             }
         }
 
-        return null;
+        return default;
     }
 
     /// <summary>

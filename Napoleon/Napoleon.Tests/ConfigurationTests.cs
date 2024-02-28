@@ -65,11 +65,15 @@ public class ConfigurationTests
     {
         var cfg = new NodeConfiguration
         {
-            ClusterName = "PROD", NetworkConfiguration = new()
+            ClusterName = "PROD", 
+            HeartbeatPeriodInMilliseconds = 500,
+            NodeIdPolicy = NodeIdPolicy.ImplicitIpAndPort,
+            NetworkConfiguration = new()
             {
                 MulticastPort = 50501,
                 MulticastAddress = "224.101.102.103",
                 TcpClientPort = 50601,
+                ServerToServerProtocol = NotificationProtocol.UdpMulticast
             }
         };
 

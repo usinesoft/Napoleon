@@ -1,5 +1,7 @@
 ﻿using Napoleon.Server.Configuration;
+using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
+using System.Text.Json;
 
 namespace Napoleon.Server.Messages;
 
@@ -66,5 +68,24 @@ public static class MessageHelper
         header.FromRawBytes(bytes);
 
         return header;
+    }
+
+    /// <summary>
+    /// Extract the mandatory requestType value from a json message
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public static int RequestType(this JsonDocument request)
+    {
+        var typeProperty = request.RootElement.GetProperty(RequestConstants.PropertyNameRequestType);
+
+        if (typeProperty.ValueKind != JsonValueKind.Number)
+            throw new ArgumentException($"{RequestConstants.PropertyNameRequestType} property is not a number",
+                nameof(request));
+
+        // request
+        var requestType = typeProperty.GetInt32();
+        return requestType;
     }
 }

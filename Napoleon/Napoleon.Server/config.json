@@ -1,0 +1,15 @@
+{
+  "ClusterName": "PROD",
+  
+  //Each node can have a specific heart-beat
+  "HeartbeatPeriodInMilliseconds": 500,
+  "NodeIdPolicy": "Guid",
+  //"NodeId": null,
+  "NetworkConfiguration": {
+    "MulticastAddress": "224.101.102.103",
+    "MulticastPort": 50501,
+    "TcpClientPort": 50601,
+    "ServerToServerProtocol": 0,
+    "ServerLists": []
+  }
+}
