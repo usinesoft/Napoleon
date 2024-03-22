@@ -18,7 +18,7 @@ public static class ConfigurationHelper
     static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,PropertyNameCaseInsensitive = true,ReadCommentHandling = JsonCommentHandling.Skip,
-        TypeInfoResolver = SourceGenerationContext.Default, Converters = { new JsonStringEnumConverter() }
+        TypeInfoResolver = SourceGenerationContext.Default
     };
 
     public static NodeConfiguration CreateDefault(string clusterName)
@@ -45,6 +45,11 @@ public static class ConfigurationHelper
         using var stream = File.OpenRead(configFilePath);
         
         return JsonSerializer.Deserialize<NodeConfiguration>(stream, Options);
+    }
+
+    public static string AsJson(this NodeConfiguration config)
+    {
+        return JsonSerializer.Serialize(config, Options);
     }
 
 

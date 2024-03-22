@@ -43,4 +43,28 @@ public class MessageTests
 
         Assert.That(hb1.ToString(), Is.EqualTo(hb2.ToString()));
     }
+
+    [Test]
+    public async Task Test_semaphores()
+    {
+        SemaphoreSlim blocking = new(0);
+
+        var task = Task.Run(async () =>
+        {
+            await blocking.WaitAsync();
+        });
+
+        await Task.Delay(100);
+
+        Assert.That(task.Status, Is.EqualTo(TaskStatus.WaitingForActivation));
+        
+        blocking.Release();
+
+        await Task.Delay(100);
+
+        Assert.That(task.Status, Is.EqualTo(TaskStatus.RanToCompletion));
+        
+    }
+
+    
 }

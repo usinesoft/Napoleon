@@ -1,4 +1,6 @@
-﻿namespace Napoleon.Server.Configuration;
+﻿using System.Text.Json.Serialization;
+
+namespace Napoleon.Server.Configuration;
 
 public class NetworkConfiguration
 {
@@ -20,6 +22,7 @@ public class NetworkConfiguration
     /// <summary>
     /// Either TCP or UDP multicast 
     /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<NotificationProtocol>))]
     public NotificationProtocol ServerToServerProtocol { get; set; }
 
     /// <summary>

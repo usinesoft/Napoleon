@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using System.Xml.Schema;
+using Napoleon.Server.Configuration;
 
 namespace Napoleon.Server.SharedData;
 
@@ -64,7 +64,7 @@ public class Item
             throw new FormatException("Version can not be 0 on a change");
         }
 
-        if (IsDeleted && Value.ValueKind != JsonValueKind.Undefined)
+        if (IsDeleted && Value.ValueKind != JsonValueKind.Null)
         {
             throw new FormatException("Value must be undefined on a delete change");
         }
@@ -73,5 +73,10 @@ public class Item
         {
             throw new FormatException("Value can be undefined only on a delete change");
         }
+    }
+
+    public override string ToString()
+    {
+        return $"{nameof(Version)}: {Version}, {nameof(Collection)}: {Collection}, {nameof(Key)}: {Key}, {nameof(Value)}: {Value}, {nameof(IsDeleted)}: {IsDeleted}";
     }
 }

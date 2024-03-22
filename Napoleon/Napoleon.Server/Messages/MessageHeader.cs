@@ -30,6 +30,11 @@ public class MessageHeader : IAsRawBytes
     /// TCP port used by the clients to connect to the sender
     /// </summary>
     public int SenderPortForClients { get; set; }
+    
+    /// <summary>
+    /// Last version of the sender data
+    /// </summary>
+    public int DataVersion { get; set; }
 
     /// <summary>
     /// Period between sender heart-beats
@@ -56,8 +61,12 @@ public class MessageHeader : IAsRawBytes
         writer.Write(SenderIp??string.Empty);
         writer.Write(SenderPortForClients);
         writer.Write(HeartbeatPeriodInMilliseconds);
+        writer.Write(DataVersion);
 
         writer.Write(PayloadSize);
+        if(PayloadSize > 0)
+            writer.Write(Payload);
+
         writer.Flush();
 
         return stream.ToArray();
@@ -76,10 +85,11 @@ public class MessageHeader : IAsRawBytes
         SenderIp = reader.ReadString();
         SenderPortForClients  = reader.ReadInt32();
         HeartbeatPeriodInMilliseconds =  reader.ReadInt32();
+        DataVersion =  reader.ReadInt32();
 
         var payloadSize = reader.ReadInt32();
         
-        Payload = payloadSize > 0 ? reader.ReadBytes(PayloadSize) : Array.Empty<byte>();
+        Payload = payloadSize > 0 ? reader.ReadBytes(payloadSize) : Array.Empty<byte>();
     }
 
     public override string ToString()

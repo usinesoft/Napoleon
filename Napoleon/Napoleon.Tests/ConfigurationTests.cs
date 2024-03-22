@@ -77,7 +77,7 @@ public class ConfigurationTests
             }
         };
 
-        var json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions{WriteIndented = true,DictionaryKeyPolicy = JsonNamingPolicy.CamelCase});
+        var json = cfg.AsJson();
 
         Assert.False(string.IsNullOrWhiteSpace(json));
     }

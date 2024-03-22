@@ -2,6 +2,7 @@
 using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
 using System.Text.Json;
+using System.Xml;
 
 namespace Napoleon.Server.Messages;
 
@@ -87,5 +88,56 @@ public static class MessageHelper
         // request
         var requestType = typeProperty.GetInt32();
         return requestType;
+    }
+
+    
+    public static bool GetBool(this JsonDocument @this, string propertyName, bool? defaultValue = null ) 
+    {
+        if (@this.RootElement.TryGetProperty(propertyName, out var value))
+        {
+            return value.GetBoolean();
+        }
+
+        if (defaultValue.HasValue)
+        {
+            return defaultValue.Value;
+        }
+
+        throw new ArgumentException($"Required property {propertyName} not found");
+    }
+
+    public static int GetInt(this JsonDocument @this, string propertyName, int? defaultValue = null ) 
+    {
+        if (@this.RootElement.TryGetProperty(propertyName, out var value))
+        {
+            return value.GetInt32();
+        }
+
+        if (defaultValue.HasValue)
+        {
+            return defaultValue.Value;
+        }
+
+        throw new ArgumentException($"Required property {propertyName} not found");
+    }
+
+    public static string GetString(this JsonDocument @this, string propertyName) 
+    {
+        if (@this.RootElement.TryGetProperty(propertyName, out var value))
+        {
+            return value.GetString() ?? throw new ArgumentException($"Required property {propertyName} not found");
+        }
+
+        throw new ArgumentException($"Required property {propertyName} not found");
+    }
+
+    public static JsonElement GetValue(this JsonDocument @this, string propertyName) 
+    {
+        if (@this.RootElement.TryGetProperty(propertyName, out var value))
+        {
+            return value;
+        }
+
+        throw new ArgumentException($"Required property {propertyName} not found");
     }
 }

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Napoleon": {
+      "commandName": "Project",
+      "commandLineArgs": "config1.json"
+    }
+  }
+}

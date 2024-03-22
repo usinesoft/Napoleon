@@ -12,7 +12,7 @@
   "NetworkConfiguration": {
     "MulticastAddress": "224.101.102.103",
     "MulticastPort": 50501,
-    "TcpClientPort": 50601,
+    "TcpClientPort": 50652,
     "ServerToServerProtocol": "UdpMulticast",
     "ServerLists": []
   }

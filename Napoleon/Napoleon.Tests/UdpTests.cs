@@ -2,6 +2,7 @@ using Napoleon.Server;
 using Napoleon.Server.Configuration;
 using Napoleon.Server.Messages;
 using Napoleon.Server.PublishSubscribe.UdpImplementation;
+using Napoleon.Server.SharedData;
 
 namespace Napoleon.Tests;
 
@@ -145,38 +146,40 @@ public class UdpTests
     }
 
 
+    Server.Server StartOneServer(NodeConfiguration config)
+    {
+        var consumer = new Consumer(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
+
+        var publisher = new Publisher(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
+
+        var dataStore = new DataStore();
+
+        var server = new Server.Server(publisher, consumer, dataStore, config);
+        server.Run();
+
+        return server;
+    }
+
+
     [Test]
     public async Task Leader_election()
     {
         var config = ConfigurationHelper.CreateDefault("cx2");
-
-
+        
         // start the first server
-        var consumer1 = new Consumer(config.NetworkConfiguration.MulticastAddress!,
-            config.NetworkConfiguration.MulticastPort);
-
-        var producer1 = new Publisher(config.NetworkConfiguration.MulticastAddress!,
-            config.NetworkConfiguration.MulticastPort);
-
-
-        using var server1 = new Server.Server(producer1, consumer1, config);
-        server1.Run();
-
+        using var server1 = StartOneServer(config);
+        
         await Task.Delay(config.HeartbeatPeriodInMilliseconds + 100);
 
         Assert.That(server1.MyStatus, Is.EqualTo(StatusInCluster.HomeAlone));
         Assert.That(server1.NodesAliveInCluster, Is.EqualTo(1));
 
         // start the second server
-        var consumer2 = new Consumer(config.NetworkConfiguration.MulticastAddress!,
-            config.NetworkConfiguration.MulticastPort);
-
-        var producer2 = new Publisher(config.NetworkConfiguration.MulticastAddress!,
-            config.NetworkConfiguration.MulticastPort);
-
-        using var server2 = new Server.Server(producer2, consumer2, config);
-        server2.Run();
-
+        using var server2 = StartOneServer(config);
+        
+        // wait for them to synchronize
         await Task.Delay(config.HeartbeatPeriodInMilliseconds + 100);
 
         Assert.That(server1.NodesAliveInCluster, Is.EqualTo(2));
@@ -184,6 +187,7 @@ public class UdpTests
 
         var status = new[] { server1.MyStatus, server2.MyStatus };
 
+        // one should be leader and the other follower
         Assert.That(status.Count(x => x == StatusInCluster.Follower), Is.EqualTo(1));
         Assert.That(status.Count(x => x == StatusInCluster.Leader), Is.EqualTo(1));
 

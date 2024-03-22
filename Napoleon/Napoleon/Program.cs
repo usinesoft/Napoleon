@@ -1,6 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using Napoleon.Server;
 using Napoleon.Server.Configuration;
-using Napoleon.Server.PublishSubscribe.UdpImplementation;
 using Spectre.Console;
 
 namespace Napoleon;
@@ -98,14 +97,18 @@ internal static class Program
         
        
     }
-
-    private static async Task Main()
+    
+    private static async Task Main(string[] args)
     {
         try
         {
-
+            string configurationFile = "config.json";
+            if (args.Length > 0)
+            {
+                configurationFile = args[0];
+            }
             // Load and display configuration
-            var config = ConfigurationHelper.TryLoadFromFile("config.json");
+            var config = ConfigurationHelper.TryLoadFromFile(configurationFile);
 
             if (config == null)
             {
@@ -116,30 +119,23 @@ internal static class Program
             config.CheckConfiguration();
 
             ConfigToConsole(config);
+
+            using ServerSuite serverSuite = new ServerSuite();
             
+            serverSuite.Start(config);
 
-            using var publisher = new Publisher(config.NetworkConfiguration.MulticastAddress!,
-                config.NetworkConfiguration.MulticastPort);
-
-            using var consumer = new Consumer(config.NetworkConfiguration.MulticastAddress!,
-                config.NetworkConfiguration.MulticastPort);
-
-
-            using var server = new Server.Server(publisher, consumer, config);
-
-            server.Run();
-
+            
             // wait for cluster status update
             await Task.Delay(config.HeartbeatPeriodInMilliseconds * 2);
             
             
-            await ServerStatusToConsole(server, config);
+            await ServerStatusToConsole(serverSuite.ClusterServer!, config);
             
             Console.WriteLine("Stopping");
         }
         catch (Exception e)
         {
-            AnsiConsole.WriteException(e);
+            AnsiConsole.Markup($"[yellow] Exception : [/] [underline yellow]{e.Message}[/]");
         }
     }
 }

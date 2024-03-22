@@ -16,7 +16,7 @@ public class DataStoreTests
 
 
         var value = store.TryGetValue("config", "cx");
-        Assert.IsNull(value);
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Undefined));
 
         // deleting an non existent value will not change the version
         var deleted = store.DeleteValue("A", "a");
@@ -77,14 +77,26 @@ public class DataStoreTests
         Assert.That(store.GlobalVersion, Is.EqualTo(7));
 
         value = store.TryGetValue("config", "array");
-        Assert.IsNull(value);
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Undefined));
 
         //trying to delete an already deleted value should not increment version
         deleted = store.DeleteValue("config", "array");
         Assert.IsFalse(deleted);
         Assert.That(store.GlobalVersion, Is.EqualTo(7));
 
-        
+        // string values can be simple strings or contain Json
+        store.PutSimpleValue("config", "name", "foo");
+        Assert.That(store.GlobalVersion, Is.EqualTo(8));
+
+        value = store.TryGetValue("config", "name");
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.String));
+
+        // putting a json string will store an object
+        store.PutSimpleValue("config", "object", "{\"foo\":\"bar\"}");
+        Assert.That(store.GlobalVersion, Is.EqualTo(9));
+
+        value = store.TryGetValue("config", "object");
+        Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Object));
     }
 
     [Test]
@@ -142,18 +154,17 @@ public class DataStoreTests
         Assert.That(changes.Count, Is.EqualTo(1));
         Assert.That(changes[0].Value.GetString(), Is.EqualTo("the sky is blue"));
 
-        store.DeleteValue("B", "b");
+        store.DeleteValue("B", "b");// version 5
 
         Assert.That(store.GlobalVersion, Is.EqualTo(5));
         changes = store.GetChangesSince(2);
         Assert.That(changes.Count, Is.EqualTo(1));
         Assert.True(changes[0].IsDeleted);
-        Assert.That(changes[0].Value.ValueKind, Is.EqualTo(JsonValueKind.Undefined));
-
+        
         
     }
 
-    private static bool DataStoresAreIdentical(DataStore store1, DataStore store2)
+    public static bool DataStoresAreIdentical(DataStore store1, DataStore store2)
     {
         var doc1 = store1.SerializeToDocument();
         var json1 = JsonSerializer.Serialize(doc1, new JsonSerializerOptions{WriteIndented = true});

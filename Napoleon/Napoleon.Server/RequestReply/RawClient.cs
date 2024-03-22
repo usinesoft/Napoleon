@@ -9,9 +9,10 @@ namespace Napoleon.Server.RequestReply;
 
 /// <summary>
 /// Low level client that sends and receives data as Json
-/// Requests are <see cref="JsonObject"/> which is mutable fal caller's convenience
-/// Responses are <see cref="JsonElement"/> which is immutable and can be "undefined" (unlike <see cref="JsonDocument"/>)
-/// An undefined response should be regarded as a void (no content required)
+/// Requests are <see cref="JsonObject"/> which is mutable for caller's convenience
+/// Single responses are <see cref="JsonElement"/> which is immutable and can be "undefined" (unlike <see cref="JsonDocument"/>)
+/// An undefined response should be regarded as a void (no content required).
+/// Streaming responses are strings for maximum efficiency.
 /// </summary>
 public sealed class RawClient : IDisposable
 {
@@ -43,38 +44,27 @@ public sealed class RawClient : IDisposable
     /// <param name="request"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async IAsyncEnumerable<JsonElement> RequestMany(JsonObject request,
+    public async IAsyncEnumerable<string> RequestMany(JsonObject request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var tcpStream = await SendRequest(request, ct);
 
         ct.ThrowIfCancellationRequested();
 
-        var first = true;
-
-        await foreach (var item in tcpStream.FromStreamWithPrefixAsync(ct))
+        
+        await foreach (var item in tcpStream.FromStreamWithSuffixAsync(ct))
         {
             ct.ThrowIfCancellationRequested();
 
-            var jsonElement = JsonSerializer.Deserialize<JsonElement>(item);
-
-            // if the response is an exception information is stored in the first item
-            if (first)
-            {
-                first = false;
-                jsonElement.ThrowIfExceptionResponse();
-            }
-
-            yield return jsonElement;
+            yield return Encoding.UTF8.GetString(item);
+           
         }
     }
 
     /// <summary>
     ///     Send a request as Json document. The numerical property "requestType" is mandatory.
-    ///     It is also sent as binary as a prefix to the message to allow for correct message routing
-    ///     before deserialization.
     /// </summary>
-    /// <param name="request">mutable json document (for callers convenience)</param>
+    /// <param name="request">mutable json document (for caller's convenience)</param>
     /// <param name="ct"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>

@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Napoleon.Tests", "Napoleon.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkBenchmark", "NetworkBenchmark\NetworkBenchmark.csproj", "{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Napoleon.Client", "Napoleon.Client\Napoleon.Client.csproj", "{6ED1281B-C704-46D2-A71E-B68346B1A680}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleClient", "ConsoleClient\ConsoleClient.csproj", "{7A214FA9-879D-4CE3-8938-FF3CDEC2757E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3E928DC4-03C3-4E7B-BC4F-2F76F2FAB575}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6ED1281B-C704-46D2-A71E-B68346B1A680}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6ED1281B-C704-46D2-A71E-B68346B1A680}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6ED1281B-C704-46D2-A71E-B68346B1A680}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6ED1281B-C704-46D2-A71E-B68346B1A680}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A214FA9-879D-4CE3-8938-FF3CDEC2757E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A214FA9-879D-4CE3-8938-FF3CDEC2757E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A214FA9-879D-4CE3-8938-FF3CDEC2757E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A214FA9-879D-4CE3-8938-FF3CDEC2757E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

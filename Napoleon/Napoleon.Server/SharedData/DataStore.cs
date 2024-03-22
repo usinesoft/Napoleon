@@ -1,27 +1,92 @@
-﻿using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json;
 
 namespace Napoleon.Server.SharedData;
 
-public partial class DataStore
+public class DataChangedEventArgs : EventArgs
+{
+    public DataChangedEventArgs(Item changedData)
+    {
+        ChangedData = changedData;
+    }
+
+    public Item ChangedData { get; private set; }
+}
+
+public interface IDataStore
+{
+    public event EventHandler<DataChangedEventArgs> AfterDataChanged;
+
+    /// <summary>
+    ///     Each modification of an item in the store increments this value
+    /// </summary>
+    int GlobalVersion { get; }
+
+    /// <summary>
+    ///     Individual changes can be applied only in order to guarantee data consistency.
+    ///     They are usually received through an async channel that does not guarantee that the messages are delivered in-order
+    /// </summary>
+    /// <param name="change"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    bool TryApplyAsyncChange(Item change);
+
+    /// <summary>
+    ///     Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
+    /// </summary>
+    /// <param name="changes"></param>
+    void ApplyChanges(IEnumerable<Item> changes);
+}
+
+public interface IReadOnlyDataStore
+{
+    /// <summary>
+    ///     Returns the value as <see cref="JsonElement" />. If the value is not fount the returned JSonElement has ValueKind =
+    ///     Undefined
+    /// </summary>
+    /// <param name="collection"></param>
+    /// <param name="key"></param>
+    /// <returns></returns>
+    JsonElement TryGetValue(string collection, string key);
+
+    /// <summary>
+    ///     Get as typed object. Null is returned if not found
+    /// </summary>
+    /// <param name="collection"></param>
+    /// <param name="key"></param>
+    /// <returns></returns>
+    T? TryGetValue<T>(string collection, string key) where T : class;
+
+    /// <summary>
+    ///     Return a typed simple value. As the default value can be a real value the boolean
+    /// should be checked to know if the value was found
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="collection"></param>
+    /// <param name="key"></param>
+    /// <returns></returns>
+    Tuple<T, bool> TryGetScalarValue<T>(string collection, string key) where T : struct;
+}
+
+public partial class DataStore:IDataStore, IReadOnlyDataStore
 {
     private readonly object _sync = new();
 
+
+
     /// <summary>
-    /// Each modification of an item in the store increments this value
+    ///     Each modification of an item in the store increments this value
     /// </summary>
     public int GlobalVersion { get; private set; }
 
     /// <summary>
-    /// Indexed data
+    ///     Indexed data
     /// </summary>
     private Dictionary<GlobalKey, Item> Items { get; } = new();
 
 
     /// <summary>
-    /// Verify that the global version is present on a key/value (and exactly one).
-    /// Every key/value should have a unique version
+    ///     Verify that the global version is present on a key/value (and exactly one).
+    ///     Every key/value should have a unique version
     /// </summary>
     private void CheckConsistency()
     {
@@ -31,27 +96,27 @@ public partial class DataStore
         {
             var version = item.Value.Version;
             var newOne = versionsOnKeys.Add(version);
-            if (!newOne)
-            {
-                throw new FormatException($"The version {version} found more than once.");
-            }
+            if (!newOne) throw new FormatException($"The version {version} found more than once.");
 
-            if (version > maxVersion)
-            {
-                maxVersion = version;
-            }
+            if (version > maxVersion) maxVersion = version;
         }
 
         if (GlobalVersion != maxVersion)
-        {
             throw new FormatException(
                 $"Global version {GlobalVersion} different from the most recent version of a key/value {maxVersion}.");
-        }
     }
 
     public void PutSimpleValue(string collection, string key, string value)
     {
-        var jsonValue = JsonDocument.Parse($"\"{value}\"").RootElement;
+        if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException(nameof(value));
+
+        // value can be a json document or a simple string
+        value  = value.Trim();
+        if (!value.StartsWith('{'))
+        {
+            value = $"\"{value}\"";
+        }
+        var jsonValue = JsonDocument.Parse(value).RootElement;
 
         PutValue(collection, key, jsonValue);
     }
@@ -80,6 +145,8 @@ public partial class DataStore
 
     public void PutValue(string collection, string key, JsonElement value)
     {
+        Item changedItem;
+
         lock (_sync)
         {
             GlobalVersion++;
@@ -95,12 +162,17 @@ public partial class DataStore
             };
 
             Items[k] = item;
+
+            changedItem = item;
         }
+
+        AfterDataChanged?.Invoke(this, new(changedItem));
     }
 
 
     /// <summary>
-    /// Returns the value as <see cref="JsonElement"/>. If the value is not fount the returned JSonElement has ValueKind = Undefined
+    ///     Returns the value as <see cref="JsonElement" />. If the value is not fount the returned JSonElement has ValueKind =
+    ///     Undefined
     /// </summary>
     /// <param name="collection"></param>
     /// <param name="key"></param>
@@ -110,17 +182,14 @@ public partial class DataStore
         var k = new GlobalKey(collection, key);
         lock (_sync)
         {
-            if (Items.TryGetValue(k, out var item) && !item.IsDeleted)
-            {
-                return item.Value;
-            }
+            if (Items.TryGetValue(k, out var item) && !item.IsDeleted) return item.Value;
         }
 
         return default;
     }
 
     /// <summary>
-    /// Get as typed object
+    ///     Get as typed object
     /// </summary>
     /// <param name="collection"></param>
     /// <param name="key"></param>
@@ -130,10 +199,7 @@ public partial class DataStore
         var k = new GlobalKey(collection, key);
         lock (_sync)
         {
-            if (Items.TryGetValue(k, out var item) && !item.IsDeleted)
-            {
-                return item.Value.Deserialize<T>();
-            }
+            if (Items.TryGetValue(k, out var item) && !item.IsDeleted) return item.Value.Deserialize<T>();
         }
 
         return null;
@@ -141,7 +207,7 @@ public partial class DataStore
 
 
     /// <summary>
-    /// Return a typed simple value
+    ///     Return a typed simple value
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="collection"></param>
@@ -165,6 +231,8 @@ public partial class DataStore
     {
         var k = new GlobalKey(collection, key);
 
+        Item? changedItem;
+
         lock (_sync)
         {
             if (!Items.TryGetValue(k, out var item) || item.IsDeleted) return false;
@@ -173,40 +241,48 @@ public partial class DataStore
             GlobalVersion++;
 
             item.IsDeleted = true;
-            item.Value = default;
+            item.Value = JsonDocument.Parse("null").RootElement;
             item.Version = GlobalVersion;
 
-            return true;
+            changedItem = item;
+            
         }
+
+        AfterDataChanged?.Invoke(this, new(changedItem));
+        
+
+        return true;
     }
 
     public IList<Item> GetChangesSince(int baseVersion)
     {
-        if (baseVersion >= GlobalVersion)
-        {
-            throw new ArgumentException($"Can not get changes: last version {GlobalVersion} is less than the base version {baseVersion}");
-        }
+        if (baseVersion > GlobalVersion)
+            throw new ArgumentException(
+                $"Can not get changes: last version {GlobalVersion} is less than the base version {baseVersion}");
 
         var changes = new List<Item>();
 
-        lock (_sync)
+        // do not work too hard if nothing changed
+        if (baseVersion == GlobalVersion)
         {
-            foreach (var item in Items.Select(x=> x.Value))
-            {
-                if (item.Version > baseVersion)
-                {
-                    changes.Add(item.Clone());
-                }
-            }
+            return changes;
         }
 
-        return changes.OrderBy(x=>x.Version).ToList();
+
+        lock (_sync)
+        {
+            foreach (var item in Items.Select(x => x.Value))
+                if (item.Version > baseVersion)
+                    changes.Add(item.Clone());
+        }
+
+        return changes.OrderBy(x => x.Version).ToList();
     }
 
 
     /// <summary>
-    /// Individual changes can be applied only in order to guarantee data consistency.
-    /// They are usually received through an async channel that does not guarantee that the messages are delivered in-order
+    ///     Individual changes can be applied only in order to guarantee data consistency.
+    ///     They are usually received through an async channel that does not guarantee that the messages are delivered in-order
     /// </summary>
     /// <param name="change"></param>
     /// <returns></returns>
@@ -216,33 +292,40 @@ public partial class DataStore
         if (change == null) throw new ArgumentNullException(nameof(change));
         change.CheckValid();
 
-        if (GlobalVersion != change.Version -1) // strong constraint
-            return false;
+        lock (_sync)
+        {
+            if (GlobalVersion != change.Version - 1) // strong constraint
+                return false;
 
-        Items[new GlobalKey(change.Collection!, change.Key!)] = change;
-        GlobalVersion=change.Version;
+            Items[new(change.Collection!, change.Key!)] = change;
+            GlobalVersion = change.Version;
+        }
 
         return true;
     }
 
 
     /// <summary>
-    /// Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
+    ///     Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
     /// </summary>
     /// <param name="changes"></param>
     public void ApplyChanges(IEnumerable<Item> changes)
     {
-        foreach (var change in changes)
+        lock (_sync)
         {
-            change.CheckValid();
-
-            if (change.Version <= GlobalVersion)
+            foreach (var change in changes)
             {
-                throw new NotSupportedException($"An ordered sequence of changes has been received that is inconsistent with the data-store version.");
-            }
+                change.CheckValid();
 
-            Items[new GlobalKey(change.Collection!, change.Key!)] = change;
-            GlobalVersion=change.Version;
+                if (change.Version <= GlobalVersion)
+                    throw new NotSupportedException(
+                        $"An ordered sequence of changes has been received that is inconsistent with the data-store version.\nReceived change:{change} MyVersion = {GlobalVersion}");
+
+                Items[new(change.Collection!, change.Key!)] = change;
+                GlobalVersion = change.Version;
+            }
         }
     }
+
+    public event EventHandler<DataChangedEventArgs>? AfterDataChanged;
 }

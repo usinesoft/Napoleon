@@ -4,25 +4,23 @@ namespace Napoleon.Server;
 
 public class NodeStatus
 {
-    public NodeStatus(StatusInCluster statusInCluster, int heartbeatPeriodInMilliseconds, int tcpClientPort, string tcpAddress, string?nodeId = null)
+    public NodeStatus(StatusInCluster statusInCluster, int heartbeatPeriodInMilliseconds, int tcpClientPort, string tcpAddress, string nodeId, int dataVersion)
     {
-        ExplicitNodeId = nodeId;
+        NodeId = nodeId;
         LastHeartbeat = DateTime.Now;
         StatusInCluster = statusInCluster;
         HeartbeatPeriodInMilliseconds = heartbeatPeriodInMilliseconds;
         TcpClientPort = tcpClientPort;
         TcpAddress = tcpAddress;
+        DataVersion = dataVersion;
     }
 
-    /// <summary>
-    /// Optional explicit node id
-    /// </summary>
-    private string? ExplicitNodeId { get; }
-
+    
     /// <summary>
     /// Either explicit or IpAddress + IpPort which is guaranteed to be unique
     /// </summary>
-    public string NodeId => ExplicitNodeId ?? $"{TcpAddress}:{TcpClientPort}";
+    public string NodeId { get; }
+    public int DataVersion { get; }
 
     public StatusInCluster StatusInCluster { get; }
 

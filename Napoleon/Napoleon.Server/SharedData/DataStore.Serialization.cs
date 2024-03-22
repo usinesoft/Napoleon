@@ -9,7 +9,7 @@ public partial class DataStore
     /// Convert all the information contained into a single document
     /// </summary>
     /// <returns></returns>
-    public JsonDocument SerializeToDocument()
+    public JsonDocument  SerializeToDocument()
     {
         JsonObject json = new JsonObject { { "GlobalVersion", GlobalVersion } };
 
@@ -18,7 +18,7 @@ public partial class DataStore
             foreach (var collectionContent in Items.Values.GroupBy(x => x.Collection))
             {
                 var collection = new JsonObject();
-                foreach (var item in collectionContent)
+                foreach (var item in collectionContent.OrderBy(x=>x.Key))
                 {
                     var versioned = new JsonObject
                     {

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Napoleon.Server.RequestReply;
 
@@ -16,5 +17,16 @@ public static class MessageExtensions
                           "exception returned without a message";
             throw new NotSupportedException(message);
         }
+    }
+
+    public static string ToExceptionResponseJson(this Exception exception)
+    {
+        var exceptionResponse = new JsonObject
+        {
+            [RequestConstants.PropertyNameIsException] = true,
+            [RequestConstants.PropertyNameExceptionMessage] = exception.Message
+        };
+        
+        return  JsonSerializer.Serialize(exceptionResponse);
     }
 }

@@ -1,4 +1,7 @@
-﻿namespace Napoleon.Server.Configuration;
+﻿using System;
+using System.Text.Json.Serialization;
+
+namespace Napoleon.Server.Configuration;
 
 /// <summary>
 ///     Basic configuration for a node in the cluster
@@ -19,6 +22,7 @@ public class NodeConfiguration
     /// <summary>
     /// How to generate an unique node id
     /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<NodeIdPolicy>))]
     public NodeIdPolicy NodeIdPolicy { get; set; }
 
     /// <summary>
