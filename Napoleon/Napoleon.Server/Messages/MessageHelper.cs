@@ -1,29 +1,30 @@
-﻿using Napoleon.Server.Configuration;
+﻿using System.Text.Json;
+using Napoleon.Server.Configuration;
 using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
-using System.Text.Json;
-using System.Xml;
 
 namespace Napoleon.Server.Messages;
 
 public static class MessageHelper
 {
-    public static MessageHeader CreateHeartbeat(NodeConfiguration config, string nodeId, StatusInCluster status, string myIpAddress)
+    public static MessageHeader CreateHeartbeat(NodeConfiguration config, string nodeId, StatusInCluster status,
+        string myIpAddress)
     {
         return new()
         {
             Cluster = config.ClusterName, SenderNode = nodeId, MessageType = MessageType.Heartbeat,
-            MessageId = Guid.NewGuid().GetHashCode(), HeartbeatPeriodInMilliseconds = config. HeartbeatPeriodInMilliseconds,
-            SenderIp = myIpAddress,SenderPortForClients = config.NetworkConfiguration.TcpClientPort, SenderStatus = status
-            
+            MessageId = Guid.NewGuid().GetHashCode(),
+            HeartbeatPeriodInMilliseconds = config.HeartbeatPeriodInMilliseconds,
+            SenderIp = myIpAddress, SenderPortForClients = config.NetworkConfiguration.TcpClientPort,
+            SenderStatus = status
         };
     }
 
     public static MessageHeader CreateDataSyncMessage(string cluster, string node, IList<Item> items)
     {
-        var payload = new DataSyncPayload{Items =  items };
+        var payload = new DataSyncPayload { Items = items };
         var bytes = payload.ToRawBytes();
-        
+
 
         return new()
         {
@@ -45,7 +46,6 @@ public static class MessageHelper
         throw new ArgumentException($"Not a data sync message (type={message.MessageType})");
     }
 
-    
 
     public static bool IsValidHeartbeat(this MessageHeader message)
     {
@@ -72,7 +72,7 @@ public static class MessageHelper
     }
 
     /// <summary>
-    /// Extract the mandatory requestType value from a json message
+    ///     Extract the mandatory requestType value from a json message
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -90,53 +90,36 @@ public static class MessageHelper
         return requestType;
     }
 
-    
-    public static bool GetBool(this JsonDocument @this, string propertyName, bool? defaultValue = null ) 
-    {
-        if (@this.RootElement.TryGetProperty(propertyName, out var value))
-        {
-            return value.GetBoolean();
-        }
 
-        if (defaultValue.HasValue)
-        {
-            return defaultValue.Value;
-        }
+    public static bool GetBool(this JsonDocument @this, string propertyName, bool? defaultValue = null)
+    {
+        if (@this.RootElement.TryGetProperty(propertyName, out var value)) return value.GetBoolean();
+
+        if (defaultValue.HasValue) return defaultValue.Value;
 
         throw new ArgumentException($"Required property {propertyName} not found");
     }
 
-    public static int GetInt(this JsonDocument @this, string propertyName, int? defaultValue = null ) 
+    public static int GetInt(this JsonDocument @this, string propertyName, int? defaultValue = null)
     {
-        if (@this.RootElement.TryGetProperty(propertyName, out var value))
-        {
-            return value.GetInt32();
-        }
+        if (@this.RootElement.TryGetProperty(propertyName, out var value)) return value.GetInt32();
 
-        if (defaultValue.HasValue)
-        {
-            return defaultValue.Value;
-        }
+        if (defaultValue.HasValue) return defaultValue.Value;
 
         throw new ArgumentException($"Required property {propertyName} not found");
     }
 
-    public static string GetString(this JsonDocument @this, string propertyName) 
+    public static string GetString(this JsonDocument @this, string propertyName)
     {
         if (@this.RootElement.TryGetProperty(propertyName, out var value))
-        {
             return value.GetString() ?? throw new ArgumentException($"Required property {propertyName} not found");
-        }
 
         throw new ArgumentException($"Required property {propertyName} not found");
     }
 
-    public static JsonElement GetValue(this JsonDocument @this, string propertyName) 
+    public static JsonElement GetValue(this JsonDocument @this, string propertyName)
     {
-        if (@this.RootElement.TryGetProperty(propertyName, out var value))
-        {
-            return value;
-        }
+        if (@this.RootElement.TryGetProperty(propertyName, out var value)) return value;
 
         throw new ArgumentException($"Required property {propertyName} not found");
     }

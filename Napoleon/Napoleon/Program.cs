@@ -1,5 +1,9 @@
-﻿using Napoleon.Server;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Napoleon.Server;
 using Napoleon.Server.Configuration;
+using Napoleon.Server.SharedData;
+using Serilog;
 using Spectre.Console;
 
 namespace Napoleon;
@@ -19,6 +23,7 @@ internal static class Program
         table.AddRow("cluster", configuration.ClusterName!);
         table.AddRow("heart-beat period", $"{configuration.HeartbeatPeriodInMilliseconds} ms");
         table.AddRow("node-id policy", $"{configuration.NodeIdPolicy}");
+        table.AddRow("data directory", $"{configuration.DataDirectory}");
 
         if (configuration.NodeIdPolicy == NodeIdPolicy.ExplicitName)
         {
@@ -84,7 +89,7 @@ internal static class Program
 
                     var status = alive ? server.StatusInCluster.ToString() : " ";
 
-                    table.AddRow(strMyself, server.NodeId, status, server.TcpAddress, server.TcpClientPort.ToString(), "54656", strAlive);
+                    table.AddRow(strMyself, server.NodeId, status, server.TcpAddress, server.TcpClientPort.ToString(), server.DataVersion.ToString(), strAlive);
                 }
 
 
@@ -96,6 +101,23 @@ internal static class Program
 
         
        
+    }
+
+    private static ServiceProvider CreateServices()
+    {
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
+        
+        var serviceProvider = new ServiceCollection()
+            .AddLogging(builder=>builder.AddSerilog(Log.Logger))
+            .AddSingleton<ServerSuite>()
+            .AddSingleton<IPersistenceEngine, PersistenceEngine>()
+            .BuildServiceProvider();
+
+        return serviceProvider; 
     }
     
     private static async Task Main(string[] args)
@@ -120,7 +142,10 @@ internal static class Program
 
             ConfigToConsole(config);
 
-            using ServerSuite serverSuite = new ServerSuite();
+            var services = CreateServices();
+
+            
+            using ServerSuite serverSuite = services.GetRequiredService<ServerSuite>();
             
             serverSuite.Start(config);
 

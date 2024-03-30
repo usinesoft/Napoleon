@@ -2,71 +2,6 @@
 
 namespace Napoleon.Server.SharedData;
 
-public class DataChangedEventArgs : EventArgs
-{
-    public DataChangedEventArgs(Item changedData)
-    {
-        ChangedData = changedData;
-    }
-
-    public Item ChangedData { get; private set; }
-}
-
-public interface IDataStore
-{
-    public event EventHandler<DataChangedEventArgs> AfterDataChanged;
-
-    /// <summary>
-    ///     Each modification of an item in the store increments this value
-    /// </summary>
-    int GlobalVersion { get; }
-
-    /// <summary>
-    ///     Individual changes can be applied only in order to guarantee data consistency.
-    ///     They are usually received through an async channel that does not guarantee that the messages are delivered in-order
-    /// </summary>
-    /// <param name="change"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    bool TryApplyAsyncChange(Item change);
-
-    /// <summary>
-    ///     Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
-    /// </summary>
-    /// <param name="changes"></param>
-    void ApplyChanges(IEnumerable<Item> changes);
-}
-
-public interface IReadOnlyDataStore
-{
-    /// <summary>
-    ///     Returns the value as <see cref="JsonElement" />. If the value is not fount the returned JSonElement has ValueKind =
-    ///     Undefined
-    /// </summary>
-    /// <param name="collection"></param>
-    /// <param name="key"></param>
-    /// <returns></returns>
-    JsonElement TryGetValue(string collection, string key);
-
-    /// <summary>
-    ///     Get as typed object. Null is returned if not found
-    /// </summary>
-    /// <param name="collection"></param>
-    /// <param name="key"></param>
-    /// <returns></returns>
-    T? TryGetValue<T>(string collection, string key) where T : class;
-
-    /// <summary>
-    ///     Return a typed simple value. As the default value can be a real value the boolean
-    /// should be checked to know if the value was found
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="collection"></param>
-    /// <param name="key"></param>
-    /// <returns></returns>
-    Tuple<T, bool> TryGetScalarValue<T>(string collection, string key) where T : struct;
-}
-
 public partial class DataStore:IDataStore, IReadOnlyDataStore
 {
     private readonly object _sync = new();
@@ -147,20 +82,23 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
     {
         Item changedItem;
 
+        var k = new GlobalKey(collection, key);
+
+        var item = new Item
+        {
+            Collection = collection,
+            Key = key,
+            Value = value.Clone(),
+            Version = GlobalVersion + 1
+        };
+
+        BeforeDataChanged?.Invoke(this, new(item) );
+
         lock (_sync)
         {
             GlobalVersion++;
 
-            var k = new GlobalKey(collection, key);
-
-            var item = new Item
-            {
-                Collection = collection,
-                Key = key,
-                Value = value.Clone(),
-                Version = GlobalVersion
-            };
-
+            
             Items[k] = item;
 
             changedItem = item;
@@ -328,4 +266,6 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
     }
 
     public event EventHandler<DataChangedEventArgs>? AfterDataChanged;
+    
+    public event EventHandler<DataChangedEventArgs>? BeforeDataChanged;
 }

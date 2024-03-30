@@ -34,7 +34,11 @@ public class UdpTests
         var producer = new Publisher(config.NetworkConfiguration.MulticastAddress!,
             config.NetworkConfiguration.MulticastPort);
 
-        Assert.DoesNotThrow(() => { producer.Publish(MessageHelper.CreateHeartbeat(config, "node01", StatusInCluster.Follower, Server.Server.GetLocalIpAddress())); });
+        Assert.DoesNotThrow(() =>
+        {
+            producer.Publish(MessageHelper.CreateHeartbeat(config, "node01", StatusInCluster.Follower,
+                ClusterCoordinator.GetLocalIpAddress()));
+        });
 
 
         producer.Dispose();
@@ -77,7 +81,8 @@ public class UdpTests
         using var producer = new Publisher(producerConfig.NetworkConfiguration.MulticastAddress!,
             producerConfig.NetworkConfiguration.MulticastPort);
 
-        producer.Publish(MessageHelper.CreateHeartbeat(producerConfig, publisherNode,StatusInCluster.Follower, Server.Server.GetLocalIpAddress()));
+        producer.Publish(MessageHelper.CreateHeartbeat(producerConfig, publisherNode, StatusInCluster.Follower,
+            ClusterCoordinator.GetLocalIpAddress()));
 
         await Task.Delay(100);
 
@@ -146,7 +151,7 @@ public class UdpTests
     }
 
 
-    Server.Server StartOneServer(NodeConfiguration config)
+    private ClusterCoordinator StartOneServer(NodeConfiguration config)
     {
         var consumer = new Consumer(config.NetworkConfiguration.MulticastAddress!,
             config.NetworkConfiguration.MulticastPort);
@@ -156,7 +161,7 @@ public class UdpTests
 
         var dataStore = new DataStore();
 
-        var server = new Server.Server(publisher, consumer, dataStore, config);
+        var server = new ClusterCoordinator(publisher, consumer, dataStore, config);
         server.Run();
 
         return server;
@@ -167,10 +172,10 @@ public class UdpTests
     public async Task Leader_election()
     {
         var config = ConfigurationHelper.CreateDefault("cx2");
-        
+
         // start the first server
         using var server1 = StartOneServer(config);
-        
+
         await Task.Delay(config.HeartbeatPeriodInMilliseconds + 100);
 
         Assert.That(server1.MyStatus, Is.EqualTo(StatusInCluster.HomeAlone));
@@ -178,7 +183,7 @@ public class UdpTests
 
         // start the second server
         using var server2 = StartOneServer(config);
-        
+
         // wait for them to synchronize
         await Task.Delay(config.HeartbeatPeriodInMilliseconds + 100);
 

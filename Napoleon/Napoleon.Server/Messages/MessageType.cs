@@ -1,7 +1,4 @@
-﻿using System.Runtime.Serialization.Json;
-using System.Text.Json.Serialization;
-
-namespace Napoleon.Server.Messages;
+﻿namespace Napoleon.Server.Messages;
 
 public enum MessageType
 {

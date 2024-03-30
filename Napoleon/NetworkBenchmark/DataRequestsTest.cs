@@ -11,7 +11,6 @@ namespace NetworkBenchmark;
 [MemoryDiagnoser]
 public class DataRequestsTest
 {
-
     private readonly string _complexJson = @"{
 	""id"": ""0001"",
 	""type"": ""donut"",
@@ -40,12 +39,12 @@ public class DataRequestsTest
 }
 ";
 
-    private DataServer _server;
+    private readonly Mock<IServer> _serverMock = new();
     private DataClient _client;
 
     private JsonElement _exampleData;
 
-    readonly Mock<IServer> _serverMock = new();
+    private DataServer _server;
 
 
     [GlobalSetup]
@@ -53,16 +52,16 @@ public class DataRequestsTest
     {
         var dataStore = new DataStore();
 
-        _server = new DataServer(dataStore, _serverMock.Object);
+        _server = new(dataStore, _serverMock.Object);
 
 
         _server.Start(48455);
 
 
         Task.Delay(100).Wait();
-                
 
-        _client = new DataClient();
+
+        _client = new();
         _client.Connect("localhost", 48455);
 
         _exampleData = JsonSerializer.Deserialize<JsonElement>(_complexJson);
@@ -75,25 +74,20 @@ public class DataRequestsTest
         _server.Dispose();
     }
 
-    
 
     [Benchmark]
     public async Task PutGetThenDeleteSimpleValue()
     {
-
-
         // put a new value in the data store
         await _client.PutValue("col1", "key1", JsonSerializer.SerializeToNode("value01")!, CancellationToken.None);
 
-        
+
         // get from the data store
         await _client.GetValue("col1", "key1", CancellationToken.None);
-        
+
 
         // delete value
         await _client.DeleteValue("col1", "key1", CancellationToken.None);
-        
-
     }
 
     [Benchmark]
@@ -102,17 +96,12 @@ public class DataRequestsTest
         // put a new value in the data store
         await _client.PutValue("col1", "key1", _exampleData, CancellationToken.None);
 
-        
+
         // get from the data store
         await _client.GetValue("col1", "key1", CancellationToken.None);
-        
+
 
         // delete value
         await _client.DeleteValue("col1", "key1", CancellationToken.None);
-        
-
     }
-
-    
-        
 }

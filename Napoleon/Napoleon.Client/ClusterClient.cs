@@ -7,29 +7,36 @@ using Napoleon.Server.Tools;
 
 namespace Napoleon.Client;
 
-
 /// <summary>
-/// A client for the distributed data mesh. It connects to a random server from a predefined list.
-/// It has a local copy of the data which is maintained synchronized by a background thread.
-/// In case of connection loss it silently reconnects to a random available server from the last known
-/// list of available servers.
-/// For data modification it connects to the leader of the cluster.
+///     A client for the distributed data mesh. It connects to a random server from a predefined list.
+///     It has a local copy of the data which is maintained synchronized by a background thread.
+///     In case of connection loss it silently reconnects to a random available server from the last known
+///     list of available servers.
+///     For data modification it connects to the leader of the cluster.
 /// </summary>
 public sealed class ClusterClient : IDisposable
 {
-    private RawClient? _rawClient;
-    
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+
     private readonly List<NodeStatus> _clusterStatus = new();
+
+    private readonly DataStore _myCopyOfData = new();
 
     private readonly object _statusLock = new();
 
-    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    /// <summary>
+    ///     Maximum retries if first connection fails
+    /// </summary>
+    private readonly int ConnectionAttempts = 5;
+
+    private NormalizedAddress? _lastSuccessfulConnection;
+    private RawClient? _rawClient;
 
     /// <summary>
-    /// Last known cluster status. A list of active servers with:
-    /// - their tcp address and port
-    /// - their role in the cluster (Leader or Follower)
-    /// - the version of their data 
+    ///     Last known cluster status. A list of active servers with:
+    ///     - their tcp address and port
+    ///     - their role in the cluster (Leader or Follower)
+    ///     - the version of their data
     /// </summary>
     public List<NodeStatus> ClusterStatus
     {
@@ -42,24 +49,21 @@ public sealed class ClusterClient : IDisposable
         }
     }
 
-    private readonly DataStore _myCopyOfData = new();
-
     public IReadOnlyDataStore Data => _myCopyOfData;
 
-    /// <summary>
-    /// Maximum retries if first connection fails
-    /// </summary>
-    private readonly int ConnectionAttempts = 5;
-
-    private NormalizedAddress? _lastSuccessfulConnection = null;
+    public void Dispose()
+    {
+        _cancellationTokenSource.Cancel();
+        _rawClient?.Dispose();
+    }
 
     private async Task<bool> TryConnect(string[] servers)
     {
         if (servers.Length == 0) throw new ArgumentException("Value cannot be an empty collection.", nameof(servers));
 
-        bool connected = false;
+        var connected = false;
 
-        for (int i = 0; i < ConnectionAttempts; i++)
+        for (var i = 0; i < ConnectionAttempts; i++)
         {
             _cancellationTokenSource.Token.ThrowIfCancellationRequested();
 
@@ -69,7 +73,7 @@ public sealed class ClusterClient : IDisposable
 
             var normalized = NormalizedAddress.FromString(server!);
 
-            
+
             if (TryConnectTo(normalized.Host, normalized.Port))
             {
                 connected = true;
@@ -95,7 +99,7 @@ public sealed class ClusterClient : IDisposable
         _rawClient = new();
 
         var connected = await TryConnect(servers);
-        
+
         if (connected)
         {
             await GetClusterStatus();
@@ -111,7 +115,7 @@ public sealed class ClusterClient : IDisposable
 
 
     /// <summary>
-    /// Get a data client for write operations
+    ///     Get a data client for write operations
     /// </summary>
     /// <returns></returns>
     public async Task<DataClient> GetLeaderDataClient()
@@ -122,9 +126,9 @@ public sealed class ClusterClient : IDisposable
     }
 
     /// <summary>
-    /// Connect to the leader of the cluster
-    /// If the first attempt is not successful try multiple times. The leader might
-    /// have changed or an election is pending so no active leader.
+    ///     Connect to the leader of the cluster
+    ///     If the first attempt is not successful try multiple times. The leader might
+    ///     have changed or an election is pending so no active leader.
     /// </summary>
     /// <returns></returns>
     /// <exception cref="NotSupportedException"></exception>
@@ -133,33 +137,27 @@ public sealed class ClusterClient : IDisposable
         var connected = false;
         var leaderConnection = new RawClient();
 
-        for (int i = 0; i < ConnectionAttempts; i++)
+
+        for (var i = 0; i < ConnectionAttempts; i++)
         {
-            var leader = ClusterStatus.Find(x => x.StatusInCluster == StatusInCluster.Leader);
-            if (leader != null)
-            {
-                connected = leaderConnection.TryConnect(leader.TcpAddress, leader.TcpClientPort);
-            }
-
-            if (connected)
-                break;
-
             await Task.Delay(100 * i);
 
             await GetClusterStatus(); // in case the leader has changed
+
+            var leader = ClusterStatus.Find(x => x.StatusInCluster == StatusInCluster.Leader);
+            if (leader != null) connected = leaderConnection.TryConnect(leader.TcpAddress, leader.TcpClientPort);
+
+            if (connected)
+                break;
         }
 
-        if (connected)
-        {
-            return leaderConnection;
-        }
+        if (connected) return leaderConnection;
 
         throw new NotSupportedException("Can not establish leader connection");
-
     }
 
     /// <summary>
-    /// Get the list of servers in the cluster. 
+    ///     Get the list of servers in the cluster.
     /// </summary>
     /// <returns></returns>
     /// <exception cref="NotSupportedException"></exception>
@@ -174,7 +172,7 @@ public sealed class ClusterClient : IDisposable
         if (response.ValueKind != JsonValueKind.Array)
             throw new NotSupportedException("Invalid response when getting cluster status");
 
-        var all = response.Deserialize(ItemSerializationContext.Default.NodeStatusArray);
+        var all = response.Deserialize(SerializationContext.Default.NodeStatusArray);
         if (all == null) throw new SerializationException("Can not deserialize node status array");
 
 
@@ -186,8 +184,8 @@ public sealed class ClusterClient : IDisposable
     }
 
     /// <summary>
-    /// A background thread that awaits for data-changes on the server and silently
-    /// updates the local copy of data.
+    ///     A background thread that awaits for data-changes on the server and silently
+    ///     updates the local copy of data.
     /// </summary>
     private void StartBackgroundSynchronization()
     {
@@ -200,11 +198,12 @@ public sealed class ClusterClient : IDisposable
                     _cancellationTokenSource.Token.ThrowIfCancellationRequested();
 
                     var dataClient = new DataClient(_rawClient!);
-                
+
                     var changes = new List<Item>();
-                
+
                     // Blocking call. It returns only if data changed or connection was lost
-                    await foreach (var change in dataClient.GetAllChangesSinceVersion(_myCopyOfData.GlobalVersion, true, _cancellationTokenSource.Token))
+                    await foreach (var change in dataClient.GetAllChangesSinceVersion(_myCopyOfData.GlobalVersion, true,
+                                       _cancellationTokenSource.Token))
                         changes.Add(change);
 
                     _myCopyOfData.ApplyChanges(changes);
@@ -219,12 +218,10 @@ public sealed class ClusterClient : IDisposable
                     var otherNodes = ClusterStatus.Where(x =>
                         x.TcpAddress != _lastSuccessfulConnection!.Host &&
                         x.TcpClientPort != _lastSuccessfulConnection.Port);
-                    
+
                     var servers = otherNodes.Select(x => $"{x.TcpAddress}:{x.TcpClientPort}");
                     await Connect(servers.ToArray());
                 }
-                
-                
             }
         });
     }
@@ -238,12 +235,5 @@ public sealed class ClusterClient : IDisposable
             changes.Add(change);
 
         _myCopyOfData.ApplyChanges(changes);
-    }
-
-    public void Dispose()
-    {
-        _cancellationTokenSource.Cancel();
-        _rawClient?.Dispose();
-        
     }
 }

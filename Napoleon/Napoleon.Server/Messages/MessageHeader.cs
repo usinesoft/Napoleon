@@ -18,35 +18,35 @@ public class MessageHeader : IAsRawBytes
     public string? SenderNode { get; set; }
 
     public StatusInCluster SenderStatus { get; set; }
-    
+
     public MessageType MessageType { get; set; }
 
     /// <summary>
-    /// Ip address of the sender
+    ///     Ip address of the sender
     /// </summary>
     public string? SenderIp { get; set; }
 
     /// <summary>
-    /// TCP port used by the clients to connect to the sender
+    ///     TCP port used by the clients to connect to the sender
     /// </summary>
     public int SenderPortForClients { get; set; }
-    
+
     /// <summary>
-    /// Last version of the sender data
+    ///     Last version of the sender data
     /// </summary>
     public int DataVersion { get; set; }
 
     /// <summary>
-    /// Period between sender heart-beats
+    ///     Period between sender heart-beats
     /// </summary>
-    public  int HeartbeatPeriodInMilliseconds { get; set; }
-    
+    public int HeartbeatPeriodInMilliseconds { get; set; }
+
     /// <summary>
     ///     Optional payload size (zero for heartbeat messages)
     /// </summary>
     public int PayloadSize => Payload.Length;
 
-    public byte[] Payload { get; set; }= Array.Empty<byte>();
+    public byte[] Payload { get; set; } = Array.Empty<byte>();
 
     public byte[] ToRawBytes()
     {
@@ -58,13 +58,13 @@ public class MessageHeader : IAsRawBytes
         writer.Write(SenderNode ?? string.Empty);
         writer.Write((int)SenderStatus);
         writer.Write((int)MessageType);
-        writer.Write(SenderIp??string.Empty);
+        writer.Write(SenderIp ?? string.Empty);
         writer.Write(SenderPortForClients);
         writer.Write(HeartbeatPeriodInMilliseconds);
         writer.Write(DataVersion);
 
         writer.Write(PayloadSize);
-        if(PayloadSize > 0)
+        if (PayloadSize > 0)
             writer.Write(Payload);
 
         writer.Flush();
@@ -83,12 +83,12 @@ public class MessageHeader : IAsRawBytes
         SenderStatus = (StatusInCluster)reader.ReadInt32();
         MessageType = (MessageType)reader.ReadInt32();
         SenderIp = reader.ReadString();
-        SenderPortForClients  = reader.ReadInt32();
-        HeartbeatPeriodInMilliseconds =  reader.ReadInt32();
-        DataVersion =  reader.ReadInt32();
+        SenderPortForClients = reader.ReadInt32();
+        HeartbeatPeriodInMilliseconds = reader.ReadInt32();
+        DataVersion = reader.ReadInt32();
 
         var payloadSize = reader.ReadInt32();
-        
+
         Payload = payloadSize > 0 ? reader.ReadBytes(payloadSize) : Array.Empty<byte>();
     }
 

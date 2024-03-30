@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Napoleon.Server.Messages;
 using Napoleon.Server.PublishSubscribe.TcpImplementation;
+using Napoleon.Server.SharedData;
 
 // because we have very good reasons to spawn a detached Task
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -17,9 +18,6 @@ namespace Napoleon.Server.RequestReply;
 /// </summary>
 public sealed class RawServer : IDisposable
 {
-    private readonly CancellationTokenSource _tokenSource = new();
-
-
     /// <summary>
     ///     Simple handlers (one input, one output)
     /// </summary>
@@ -31,7 +29,15 @@ public sealed class RawServer : IDisposable
     private readonly Dictionary<int, Func<JsonDocument, IAsyncEnumerable<string>>>
         _streamingHandlersByRequestType = new();
 
+    private readonly CancellationTokenSource _tokenSource = new();
+
     private bool _started;
+
+    public void Dispose()
+    {
+        _tokenSource.Cancel();
+        _tokenSource.Dispose();
+    }
 
     /// <summary>
     ///     A handler reads a <see cref="JsonDocument" /> and produces a string (which may be null for a void response)
@@ -94,7 +100,7 @@ public sealed class RawServer : IDisposable
                 var requestSize = await stream.ReadIntAsync(ct);
                 var requestData = await stream.ReadDataAsync(requestSize, ct);
 
-                var request = JsonSerializer.Deserialize<JsonDocument>(requestData);
+                var request = JsonSerializer.Deserialize(requestData, SerializationContext.Default.JsonDocument);
                 if (request == null) throw new NotSupportedException("The request is not a valid json document");
 
                 var requestType = request.RequestType();
@@ -234,14 +240,8 @@ public sealed class RawServer : IDisposable
         });
 
         // if port 0 was specified a dynamic one was selected
-        int dynamicPort = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var dynamicPort = ((IPEndPoint)listener.LocalEndpoint).Port;
 
         return dynamicPort;
-    }
-
-    public void Dispose()
-    {
-        _tokenSource.Cancel();
-        _tokenSource.Dispose();
     }
 }

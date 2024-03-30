@@ -4,19 +4,27 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Napoleon.Server.PublishSubscribe.TcpImplementation;
+using Napoleon.Server.SharedData;
 
 namespace Napoleon.Server.RequestReply;
 
 /// <summary>
-/// Low level client that sends and receives data as Json
-/// Requests are <see cref="JsonObject"/> which is mutable for caller's convenience
-/// Single responses are <see cref="JsonElement"/> which is immutable and can be "undefined" (unlike <see cref="JsonDocument"/>)
-/// An undefined response should be regarded as a void (no content required).
-/// Streaming responses are strings for maximum efficiency.
+///     Low level client that sends and receives data as Json
+///     Requests are <see cref="JsonObject" /> which is mutable for caller's convenience
+///     Single responses are <see cref="JsonElement" /> which is immutable and can be "undefined" (unlike
+///     <see cref="JsonDocument" />)
+///     An undefined response should be regarded as a void (no content required).
+///     Streaming responses are strings for maximum efficiency.
 /// </summary>
 public sealed class RawClient : IDisposable
 {
     private readonly TcpClient _client = new();
+
+
+    public void Dispose()
+    {
+        _client.Dispose();
+    }
 
     /// <summary>
     ///     Connect to a server with timeout
@@ -51,13 +59,12 @@ public sealed class RawClient : IDisposable
 
         ct.ThrowIfCancellationRequested();
 
-        
+
         await foreach (var item in tcpStream.FromStreamWithSuffixAsync(ct))
         {
             ct.ThrowIfCancellationRequested();
 
             yield return Encoding.UTF8.GetString(item);
-           
         }
     }
 
@@ -80,7 +87,7 @@ public sealed class RawClient : IDisposable
             return default;
 
         var responseData = await tcpStream.ReadDataAsync(responseSize, ct);
-        var response = JsonSerializer.Deserialize<JsonElement>(responseData);
+        var response = JsonSerializer.Deserialize(responseData, SerializationContext.Default.JsonElement);
 
         response.ThrowIfExceptionResponse();
 
@@ -96,23 +103,17 @@ public sealed class RawClient : IDisposable
     /// <exception cref="ArgumentException"></exception>
     private async Task<NetworkStream> SendRequest(JsonObject request, CancellationToken ct)
     {
-        var reqAsDoc = request.Deserialize<JsonDocument>();
+        var reqAsDoc = request.Deserialize(SerializationContext.Default.JsonDocument);
 
         if (reqAsDoc == null) throw new ArgumentException("Is not a valid Json document", nameof(request));
-        
+
         var tcpStream = _client.GetStream();
-        
-        var json = JsonSerializer.Serialize(reqAsDoc);
+
+        var json = JsonSerializer.Serialize(reqAsDoc, SerializationContext.Default.JsonDocument);
         var data = Encoding.UTF8.GetBytes(json);
 
         await tcpStream.WriteIntAsync(data.Length, ct);
         await tcpStream.WriteAsync(data, ct);
         return tcpStream;
-    }
-
-
-    public void Dispose()
-    {
-        _client.Dispose();
     }
 }

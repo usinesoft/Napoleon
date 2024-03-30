@@ -3,13 +3,13 @@
 public interface IServer
 {
     string? MyNodeId { get; }
-    
+
     StatusInCluster MyStatus { get; }
-    
+
     NodeStatus[] AllNodes();
 
     /// <summary>
-    /// Block wile the server is synchronizing data
+    ///     Block wile the server is synchronizing data
     /// </summary>
     Task WaitSyncingEnd();
 
@@ -17,12 +17,12 @@ public interface IServer
 }
 
 /// <summary>
-/// Wraps a synchronization object that is initialized by the client as blocking and released by the server
-/// when the client need to be woke up 
+///     Wraps a synchronization object that is initialized by the client as blocking and released by the server
+///     when the client need to be woke up
 /// </summary>
 public class WakeUpCall
 {
-    readonly SemaphoreSlim _blockingSemaphore = new(0);
+    private readonly SemaphoreSlim _blockingSemaphore = new(0);
 
     public Task WaitForCall()
     {

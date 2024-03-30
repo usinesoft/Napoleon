@@ -6,30 +6,27 @@ namespace Napoleon.Server.SharedData;
 public partial class DataStore
 {
     /// <summary>
-    /// Convert all the information contained into a single document
+    ///     Convert all the information contained into a single document
     /// </summary>
     /// <returns></returns>
-    public JsonDocument  SerializeToDocument()
+    public JsonDocument SerializeToDocument()
     {
-        JsonObject json = new JsonObject { { "GlobalVersion", GlobalVersion } };
+        var json = new JsonObject { { "GlobalVersion", GlobalVersion } };
 
         lock (_sync)
         {
             foreach (var collectionContent in Items.Values.GroupBy(x => x.Collection))
             {
                 var collection = new JsonObject();
-                foreach (var item in collectionContent.OrderBy(x=>x.Key))
+                foreach (var item in collectionContent.OrderBy(x => x.Key))
                 {
                     var versioned = new JsonObject
                     {
                         { "version", item.Version }
                     };
 
-                    var asNode = item.IsDeleted ? null : item.Value.Deserialize<JsonNode>();
-                    if (asNode != null)
-                    {
-                        versioned.Add("value", asNode);
-                    }
+                    var asNode = item.IsDeleted ? null : item.Value.Deserialize(SerializationContext.Default.JsonNode);
+                    if (asNode != null) versioned.Add("value", asNode);
 
                     collection.Add(item.Key!, versioned);
                 }
@@ -39,11 +36,11 @@ public partial class DataStore
         }
 
 
-        return JsonSerializer.SerializeToDocument(json);
+        return JsonSerializer.SerializeToDocument(json, SerializationContext.Default.JsonObject);
     }
 
     /// <summary>
-    /// Initialize from json document
+    ///     Initialize from json document
     /// </summary>
     /// <param name="jDoc"></param>
     /// <exception cref="FormatException"></exception>
@@ -56,7 +53,6 @@ public partial class DataStore
             Items.Clear();
 
             foreach (var itemLevel0 in jDoc.RootElement.EnumerateObject())
-            {
                 if (itemLevel0.Name == "GlobalVersion")
                 {
                     GlobalVersion = itemLevel0.Value.GetInt32();
@@ -64,7 +60,7 @@ public partial class DataStore
                 else // a collection name
                 {
                     var collectionName = itemLevel0.Name;
-                    
+
                     var collection = itemLevel0.Value;
 
                     foreach (var kv in collection.EnumerateObject())
@@ -72,20 +68,16 @@ public partial class DataStore
                         var keyName = kv.Name;
                         var valueAndVersion = kv.Value.EnumerateObject().ToArray();
                         if (valueAndVersion.Length < 1 || valueAndVersion[0].Name != "version")
-                        {
                             throw new FormatException("Invalid data store json");
-                        }
 
                         var version = valueAndVersion[0].Value.GetInt32();
 
                         JsonElement? value = null;
                         if (valueAndVersion.Length == 2 && valueAndVersion[1].Name == "value")
-                        {
                             value = valueAndVersion[1].Value;
-                        }
 
                         var k = new GlobalKey(collectionName, keyName);
-                        Items[k] = new Item
+                        Items[k] = new()
                         {
                             Collection = collectionName,
                             Value = value ?? default,
@@ -95,7 +87,6 @@ public partial class DataStore
                         };
                     }
                 }
-            }
 
             CheckConsistency();
         }

@@ -255,15 +255,15 @@ public sealed class Server : IDisposable, IServer
             var client = new DataClient();
             client.Connect(chosenNode.TcpAddress, chosenNode.TcpClientPort);
 
+            var changes = new List<Item>();
             await foreach (var change in client.GetAllChangesSinceVersion(_dataStore.GlobalVersion))
             {
-                // If change can not be applied my version changed since the function was called
-                // Retry on the next heart-beat
-                if (!_dataStore.TryApplyAsyncChange(change))
-                {
-                    break;
-                }
+                changes.Add(change);
+                
             }
+
+            _dataStore.ApplyChanges(changes);
+            
         }
         finally
         {

@@ -3,9 +3,9 @@ using Napoleon.Server.SharedData;
 
 namespace Napoleon.Server.Messages;
 
-public class DataSyncPayload:IAsRawBytes
+public class DataSyncPayload : IAsRawBytes
 {
-    public IList<Item> Items{ get; set; } = new List<Item>();
+    public IList<Item> Items { get; init; } = new List<Item>();
 
     public byte[] ToRawBytes()
     {
@@ -21,8 +21,7 @@ public class DataSyncPayload:IAsRawBytes
             writer.Write(item.IsDeleted);
             if (!item.IsDeleted)
             {
-
-                var json = JsonSerializer.Serialize(item.Value);
+                var json = JsonSerializer.Serialize(item.Value, SerializationContext.Default.JsonElement);
                 writer.Write(json);
             }
         }
@@ -35,7 +34,8 @@ public class DataSyncPayload:IAsRawBytes
         var stream = new MemoryStream(bytes);
         var reader = new BinaryReader(stream);
         var count = reader.ReadInt32();
-        for (int i = 0; i < count; i++)
+
+        for (var i = 0; i < count; i++)
         {
             var item = new Item
             {
@@ -48,7 +48,11 @@ public class DataSyncPayload:IAsRawBytes
             if (!item.IsDeleted)
             {
                 var json = reader.ReadString();
-                item.Value = JsonSerializer.Deserialize<JsonElement>(json);
+                item.Value = JsonSerializer.Deserialize(json, SerializationContext.Default.JsonElement);
+            }
+            else // put null on deleted items as 'Undefined' is not serializable
+            {
+                item.Value = JsonSerializer.Deserialize("null", SerializationContext.Default.JsonElement);
             }
 
             Items.Add(item);

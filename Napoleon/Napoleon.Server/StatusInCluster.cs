@@ -3,23 +3,27 @@
 public enum StatusInCluster
 {
     /// <summary>
-    /// Not initialized
+    ///     Not initialized
     /// </summary>
     None,
+
     /// <summary>
-    /// A single node
+    ///     A single node
     /// </summary>
     HomeAlone,
+
     /// <summary>
-    /// A node that follows a leader in the cluster
+    ///     A node that follows a leader in the cluster
     /// </summary>
     Follower,
+
     /// <summary>
-    /// Candidate leader waiting for confirmation from all nodes that are alive
+    ///     Candidate leader waiting for confirmation from all nodes that are alive
     /// </summary>
     Candidate,
+
     /// <summary>
-    /// Confirmed leader
+    ///     Confirmed leader
     /// </summary>
     Leader
 }

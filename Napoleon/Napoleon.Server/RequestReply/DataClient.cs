@@ -10,7 +10,6 @@ namespace Napoleon.Server.RequestReply;
 /// </summary>
 public sealed class DataClient : IDisposable
 {
-    
     private readonly RawClient _rawClient;
 
     public DataClient()
@@ -19,12 +18,17 @@ public sealed class DataClient : IDisposable
     }
 
     /// <summary>
-    /// When reusing an existing connection
+    ///     When reusing an existing connection
     /// </summary>
     /// <param name="rawClient"></param>
     public DataClient(RawClient rawClient)
     {
         _rawClient = rawClient ?? throw new ArgumentNullException(nameof(rawClient));
+    }
+
+    public void Dispose()
+    {
+        _rawClient.Dispose();
     }
 
 
@@ -34,7 +38,7 @@ public sealed class DataClient : IDisposable
             throw new NotSupportedException($"Can not connect to {serverAddress}:{serverPort}");
     }
 
-    public async Task<JsonElement> GetValue(string collection, string key, CancellationToken ct)
+    public async Task<JsonElement> GetValue(string collection, string key, CancellationToken ct = default)
     {
         var request = new JsonObject
         {
@@ -46,7 +50,7 @@ public sealed class DataClient : IDisposable
         return await _rawClient.RequestOne(request, ct);
     }
 
-    public async Task<JsonElement> DeleteValue(string collection, string key, CancellationToken ct)
+    public async Task<JsonElement> DeleteValue(string collection, string key, CancellationToken ct = default)
     {
         var request = new JsonObject
         {
@@ -58,7 +62,7 @@ public sealed class DataClient : IDisposable
         return await _rawClient.RequestOne(request, ct);
     }
 
-    public async Task PutValue(string collection, string key, JsonNode value, CancellationToken ct = default)
+    public async Task PutValue(string collection, string key, JsonNode? value, CancellationToken ct = default)
     {
         var request = new JsonObject
         {
@@ -92,7 +96,7 @@ public sealed class DataClient : IDisposable
     /// <param name="awaitIfNothingChanged">if true block (await) until data changes</param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async IAsyncEnumerable<Item> GetAllChangesSinceVersion(int version, bool  awaitIfNothingChanged = false,
+    public async IAsyncEnumerable<Item> GetAllChangesSinceVersion(int version, bool awaitIfNothingChanged = false,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var request = new JsonObject
@@ -105,9 +109,8 @@ public sealed class DataClient : IDisposable
 
         await foreach (var change in _rawClient.RequestMany(request, ct).WithCancellation(ct))
         {
-            var item = JsonSerializer.Deserialize(change, ItemSerializationContext.Default.Item);
+            var item = JsonSerializer.Deserialize(change, SerializationContext.Default.Item);
             if (item != null) yield return item;
-            
         }
     }
 
@@ -125,10 +128,5 @@ public sealed class DataClient : IDisposable
         };
 
         await _rawClient.RequestOne(request, ct);
-    }
-
-    public void Dispose()
-    {
-        _rawClient.Dispose();
     }
 }

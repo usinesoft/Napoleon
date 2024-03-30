@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Napoleon.Server.Configuration;
 
@@ -13,27 +12,32 @@ public class NodeConfiguration
     /// </summary>
     public string? ClusterName { get; set; }
 
+    /// <summary>
+    ///     The directory for persistent data
+    /// </summary>
+    public string? DataDirectory { get; set; }
+
 
     /// <summary>
-    /// Nodes may have different heart-beat periods
+    ///     Nodes may have different heart-beat periods
     /// </summary>
     public int HeartbeatPeriodInMilliseconds { get; set; }
 
     /// <summary>
-    /// How to generate an unique node id
+    ///     How to generate an unique node id
     /// </summary>
     [JsonConverter(typeof(JsonStringEnumConverter<NodeIdPolicy>))]
     public NodeIdPolicy NodeIdPolicy { get; set; }
 
     /// <summary>
-    /// Explicit node id. Mandatory if <see cref="NodeIdPolicy"/> is ExplicitName.
-    /// Not required otherwise (ignored if filled)
+    ///     Explicit node id. Mandatory if <see cref="NodeIdPolicy" /> is ExplicitName.
+    ///     Not required otherwise (ignored if filled)
     /// </summary>
     public string? NodeId { get; set; }
 
- 
+
     /// <summary>
-    /// Network configuration for clients and server-server communication
+    ///     Network configuration for clients and server-server communication
     /// </summary>
     public NetworkConfiguration NetworkConfiguration { get; set; } = new();
 }

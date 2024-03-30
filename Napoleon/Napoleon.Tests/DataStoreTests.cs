@@ -23,7 +23,7 @@ public class DataStoreTests
         Assert.That(deleted, Is.False);
         Assert.That(store.GlobalVersion, Is.EqualTo(0));
 
-        
+
         // put a simple value
         store.PutSimpleValue("config", "activate", true);
         Assert.That(store.GlobalVersion, Is.EqualTo(1));
@@ -37,7 +37,7 @@ public class DataStoreTests
 
         value = store.TryGetValue("config", "activate");
         Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.False));
-        (bool bv, bool found )=  store.TryGetScalarValue<bool>("config", "activate");
+        (var bv, var found) = store.TryGetScalarValue<bool>("config", "activate");
         Assert.That(bv, Is.False);
         Assert.That(found, Is.True);
 
@@ -56,21 +56,21 @@ public class DataStoreTests
         Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Number));
 
         // object value
-        store.PutValue("config", "origin", new{X=1, Y=5});
+        store.PutValue("config", "origin", new { X = 1, Y = 5 });
         Assert.That(store.GlobalVersion, Is.EqualTo(5));
 
         value = store.TryGetValue("config", "origin");
         Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Object));
 
         // array value
-        store.PutValue("config", "array", new[]{1,2,3});
+        store.PutValue("config", "array", new[] { 1, 2, 3 });
         Assert.That(store.GlobalVersion, Is.EqualTo(6));
 
         value = store.TryGetValue("config", "array");
         Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Array));
         var result = store.TryGetValue<int[]>("config", "array");
         Assert.IsNotNull(result);
-        CollectionAssert.AreEqual(result, new[]{1,2,3});
+        CollectionAssert.AreEqual(result, new[] { 1, 2, 3 });
 
         deleted = store.DeleteValue("config", "array");
         Assert.IsTrue(deleted);
@@ -104,21 +104,21 @@ public class DataStoreTests
     {
         var store = new DataStore();
         store.PutValue("config", "ids", new[] { 4, 15, 88 });
-        store.PutValue("config", "credentials", new {Url="https://test/com/api", Token = "56465887##"});
+        store.PutValue("config", "credentials", new { Url = "https://test/com/api", Token = "56465887##" });
 
         store.PutValue("all", "activate_ping", true);
         store.PutValue("all", "protocol", "UDP");
         store.PutValue("all", "port", 4888);
         store.DeleteValue("all", "port");
 
-        
+
         var doc = store.SerializeToDocument();
-        var json = JsonSerializer.Serialize(doc, new JsonSerializerOptions{WriteIndented = true});
+        var json = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
 
         var store2 = new DataStore();
         store2.DeserializeFromDocument(doc);
         var doc2 = store2.SerializeToDocument();
-        var json2 = JsonSerializer.Serialize(doc2, new JsonSerializerOptions{WriteIndented = true});
+        var json2 = JsonSerializer.Serialize(doc2, new JsonSerializerOptions { WriteIndented = true });
 
         Assert.That(json, Is.EqualTo(json2));
 
@@ -128,11 +128,10 @@ public class DataStoreTests
         var (activatePing, found1) = store2.TryGetScalarValue<bool>("all", "activate_ping");
         Assert.That(found1, Is.True);
         Assert.That(activatePing, Is.True);
-        
+
 
         var ids = store2.TryGetValue<int[]>("config", "ids");
-        CollectionAssert.AreEqual(ids, new[]{4, 15, 88});
-
+        CollectionAssert.AreEqual(ids, new[] { 4, 15, 88 });
     }
 
     [Test]
@@ -141,7 +140,7 @@ public class DataStoreTests
         var store = new DataStore();
 
         store.PutValue("A", "a", true); // version 1
-        store.PutValue("A", "a1", true);// version 2
+        store.PutValue("A", "a1", true); // version 2
         store.PutValue("B", "b", "what a wonderful world"); // version 3
         store.PutValue("B", "b", "the sky is blue"); //version 4
 
@@ -154,23 +153,21 @@ public class DataStoreTests
         Assert.That(changes.Count, Is.EqualTo(1));
         Assert.That(changes[0].Value.GetString(), Is.EqualTo("the sky is blue"));
 
-        store.DeleteValue("B", "b");// version 5
+        store.DeleteValue("B", "b"); // version 5
 
         Assert.That(store.GlobalVersion, Is.EqualTo(5));
         changes = store.GetChangesSince(2);
         Assert.That(changes.Count, Is.EqualTo(1));
         Assert.True(changes[0].IsDeleted);
-        
-        
     }
 
     public static bool DataStoresAreIdentical(DataStore store1, DataStore store2)
     {
         var doc1 = store1.SerializeToDocument();
-        var json1 = JsonSerializer.Serialize(doc1, new JsonSerializerOptions{WriteIndented = true});
+        var json1 = JsonSerializer.Serialize(doc1, new JsonSerializerOptions { WriteIndented = true });
 
         var doc2 = store2.SerializeToDocument();
-        var json2 = JsonSerializer.Serialize(doc2, new JsonSerializerOptions{WriteIndented = true});
+        var json2 = JsonSerializer.Serialize(doc2, new JsonSerializerOptions { WriteIndented = true });
 
         return json1 == json2;
     }
@@ -179,22 +176,24 @@ public class DataStoreTests
     public void Data_stores_synchronization()
     {
         var masterData = new DataStore();
-        
+
         var followerData = new DataStore();
 
         Assert.That(DataStoresAreIdentical(masterData, followerData));
 
         // apply the same change to both
-        var change1 = new Item { Collection = "A", Key = "a", Version = 1, Value = JsonSerializer.SerializeToElement(15) };
-        bool applied1ToMaster = masterData.TryApplyAsyncChange(change1);
+        var change1 = new Item
+            { Collection = "A", Key = "a", Version = 1, Value = JsonSerializer.SerializeToElement(15) };
+        var applied1ToMaster = masterData.TryApplyAsyncChange(change1);
         Assert.That(applied1ToMaster);
-        bool applied1ToFollower = followerData.TryApplyAsyncChange(change1);
+        var applied1ToFollower = followerData.TryApplyAsyncChange(change1);
         Assert.That(applied1ToFollower);
 
         Assert.That(DataStoresAreIdentical(masterData, followerData));
 
         // apply a new change only to master
-        var change2 = new Item { Collection = "A", Key = "a", Version = 2, Value = JsonSerializer.SerializeToElement(16) };
+        var change2 = new Item
+            { Collection = "A", Key = "a", Version = 2, Value = JsonSerializer.SerializeToElement(16) };
         var applied2ToMaster = masterData.TryApplyAsyncChange(change2);
         Assert.That(applied2ToMaster);
         Assert.That(!DataStoresAreIdentical(masterData, followerData));
@@ -202,7 +201,8 @@ public class DataStoreTests
         Assert.That(followerData.GlobalVersion, Is.EqualTo(1));
 
         // apply again a new change only to master
-        var change3 = new Item { Collection = "A", Key = "a", Version = 3, Value = JsonSerializer.SerializeToElement(17) };
+        var change3 = new Item
+            { Collection = "A", Key = "a", Version = 3, Value = JsonSerializer.SerializeToElement(17) };
         var applied3ToMaster = masterData.TryApplyAsyncChange(change3);
         Assert.That(applied3ToMaster);
         Assert.That(!DataStoresAreIdentical(masterData, followerData));
@@ -222,7 +222,7 @@ public class DataStoreTests
 
         // fully synchronize an empty data store using messages
         var newcomer = new DataStore();
-        var all = followerData.GetChangesSince(0);// all data
+        var all = followerData.GetChangesSince(0); // all data
 
         var syncMessage = MessageHelper.CreateDataSyncMessage("tst", "node01", all);
         Assert.That(syncMessage.MessageType, Is.EqualTo(MessageType.DataSync));
@@ -231,5 +231,4 @@ public class DataStoreTests
 
         Assert.That(DataStoresAreIdentical(newcomer, followerData));
     }
-
 }

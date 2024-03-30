@@ -83,17 +83,12 @@ public static class StreamingHelper
         while (true)
         {
             var size = await stream.ReadIntAsync(ct);
-            if (size == 0)
-            {
-                yield break;
-            }
-                
+            if (size == 0) yield break;
+
 
             var data = await stream.ReadDataAsync(size, ct);
 
             yield return data;
         }
     }
-
-    
 }

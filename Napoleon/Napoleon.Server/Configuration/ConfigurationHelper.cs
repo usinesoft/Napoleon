@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 
 namespace Napoleon.Server.Configuration;
 
-
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(NodeConfiguration))]
 internal partial class SourceGenerationContext : JsonSerializerContext
@@ -14,10 +13,9 @@ internal partial class SourceGenerationContext : JsonSerializerContext
 
 public static class ConfigurationHelper
 {
-
-    static readonly JsonSerializerOptions Options = new()
+    private static readonly JsonSerializerOptions Options = new()
     {
-        WriteIndented = true,PropertyNameCaseInsensitive = true,ReadCommentHandling = JsonCommentHandling.Skip,
+        WriteIndented = true, PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip,
         TypeInfoResolver = SourceGenerationContext.Default
     };
 
@@ -28,22 +26,23 @@ public static class ConfigurationHelper
             ClusterName = clusterName,
             HeartbeatPeriodInMilliseconds = 500,
             NodeIdPolicy = NodeIdPolicy.Guid,
-            
+            DataDirectory = null,
+
             NetworkConfiguration = new()
             {
                 MulticastPort = Constants.DefaultMulticastPort,
-                MulticastAddress = Constants.DefaultMulticastAddress,
+                MulticastAddress = Constants.DefaultMulticastAddress
             }
         };
     }
 
     public static NodeConfiguration? TryLoadFromFile(string configFilePath)
     {
-        if (!File.Exists(configFilePath)) { return null; }
+        if (!File.Exists(configFilePath)) return null;
 
-        
+
         using var stream = File.OpenRead(configFilePath);
-        
+
         return JsonSerializer.Deserialize<NodeConfiguration>(stream, Options);
     }
 
@@ -54,33 +53,37 @@ public static class ConfigurationHelper
 
 
     /// <summary>
-    /// Throw an exception if invalid configuration
+    ///     Throw an exception if invalid configuration
     /// </summary>
     /// <param name="networkConfig"></param>
     private static void CheckNetworkConfiguration(this NetworkConfiguration networkConfig)
     {
-         
         if (networkConfig.ServerToServerProtocol == NotificationProtocol.Tcp)
         {
-            if(networkConfig.ServerLists.Length == 0) throw new ArgumentException($"The server to server protocol is TCP and no server address is specified");
+            if (networkConfig.ServerLists.Length == 0)
+                throw new ArgumentException("The server to server protocol is TCP and no server address is specified");
 
             foreach (var hostAndPort in networkConfig.ServerLists)
             {
-                if (string.IsNullOrWhiteSpace(hostAndPort)) throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
+                if (string.IsNullOrWhiteSpace(hostAndPort))
+                    throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
 
-                var parts = hostAndPort.Split(':',StringSplitOptions.RemoveEmptyEntries);
-                if(parts.Length != 2) throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
-            
+                var parts = hostAndPort.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 2) throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
+
                 var host = parts[0];
                 var port = parts[1];
-                if(!int.TryParse(port, out var tcpPort)) throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
+                if (!int.TryParse(port, out var tcpPort))
+                    throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
 
                 var hostType = Uri.CheckHostName(host);
 
-                if (hostType is not (UriHostNameType.Dns or UriHostNameType.IPv4 or UriHostNameType.IPv6)) throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
+                if (hostType is not (UriHostNameType.Dns or UriHostNameType.IPv4 or UriHostNameType.IPv6))
+                    throw new ArgumentException($"Invalid entry in server list {hostAndPort}");
 
-                if (tcpPort is <= IPEndPoint.MinPort or >= IPEndPoint.MaxPort) throw new ArgumentException($"Invalid entry in server list {hostAndPort}. The port number is not valid");
-
+                if (tcpPort is <= IPEndPoint.MinPort or >= IPEndPoint.MaxPort)
+                    throw new ArgumentException(
+                        $"Invalid entry in server list {hostAndPort}. The port number is not valid");
             }
         }
 
@@ -107,10 +110,7 @@ public static class ConfigurationHelper
 
             if (networkConfig.MulticastPort is <= IPEndPoint.MinPort or >= IPEndPoint.MaxPort)
                 throw new ArgumentException($"Invalid multicast port:{networkConfig.MulticastPort}");
-
         }
-
-
     }
 
 

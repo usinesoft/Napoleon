@@ -2,7 +2,8 @@
   "profiles": {
     "Napoleon": {
       "commandName": "Project",
-      "commandLineArgs": "config1.json"
+      "commandLineArgs": "config1.json",
+      "workingDirectory": "C:\\git\\Napoleon\\Napoleon\\Napoleon\\release"
     }
   }
 }

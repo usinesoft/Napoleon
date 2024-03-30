@@ -4,7 +4,8 @@ namespace Napoleon.Server;
 
 public class NodeStatus
 {
-    public NodeStatus(StatusInCluster statusInCluster, int heartbeatPeriodInMilliseconds, int tcpClientPort, string tcpAddress, string nodeId, int dataVersion)
+    public NodeStatus(StatusInCluster statusInCluster, int heartbeatPeriodInMilliseconds, int tcpClientPort,
+        string tcpAddress, string nodeId, int dataVersion)
     {
         NodeId = nodeId;
         LastHeartbeat = DateTime.Now;
@@ -15,11 +16,12 @@ public class NodeStatus
         DataVersion = dataVersion;
     }
 
-    
+
     /// <summary>
-    /// Either explicit or IpAddress + IpPort which is guaranteed to be unique
+    ///     Either explicit or IpAddress + IpPort which is guaranteed to be unique
     /// </summary>
     public string NodeId { get; }
+
     public int DataVersion { get; }
 
     public StatusInCluster StatusInCluster { get; }
@@ -29,16 +31,16 @@ public class NodeStatus
     public int HeartbeatPeriodInMilliseconds { get; }
 
     public int TcpClientPort { get; }
-    
+
     public string TcpAddress { get; }
 
-    
+
     public bool IsAlive => (DateTimeOffset.Now - LastHeartbeat).TotalMilliseconds <
                            HeartbeatPeriodInMilliseconds * Constants.HearbeatsLostBeforeDeath;
 
     /// <summary>
-    /// In multicast mode if a node is dead for a long time forget it
+    ///     In multicast mode if a node is dead for a long time forget it
     /// </summary>
     public bool IsForgotten => (DateTimeOffset.Now - LastHeartbeat).TotalMilliseconds >
-                           HeartbeatPeriodInMilliseconds * Constants.HearbeatsLostBeforeDeath * 10;
+                               HeartbeatPeriodInMilliseconds * Constants.HearbeatsLostBeforeDeath * 10;
 }

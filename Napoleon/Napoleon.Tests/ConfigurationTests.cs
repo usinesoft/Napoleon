@@ -1,5 +1,4 @@
 using Napoleon.Server.Configuration;
-using System.Text.Json;
 
 namespace Napoleon.Tests;
 
@@ -18,15 +17,15 @@ public class ConfigurationTests
     {
         var empty = new NodeConfiguration();
 
-        Assert.Throws<ArgumentException>(()=>empty.CheckConfiguration(), "empty configuration should not be valid");
+        Assert.Throws<ArgumentException>(() => empty.CheckConfiguration(), "empty configuration should not be valid");
 
         var withCluster = new NodeConfiguration
         {
             ClusterName = "my cluster"
         };
 
-        Assert.Throws<ArgumentException>(()=>withCluster.CheckConfiguration(), "empty configuration should not be valid");
-
+        Assert.Throws<ArgumentException>(() => withCluster.CheckConfiguration(),
+            "empty configuration should not be valid");
     }
 
     [Test]
@@ -38,7 +37,7 @@ public class ConfigurationTests
             NetworkConfiguration = { MulticastAddress = "220.0.0.12", MulticastPort = 8888 }
         };
 
-        Assert.Throws<ArgumentException>(()=>invalidGroupAddress.CheckConfiguration(),
+        Assert.Throws<ArgumentException>(() => invalidGroupAddress.CheckConfiguration(),
             "configuration with invalid group address should not be valid");
 
         var invalidGroupPort = new NodeConfiguration
@@ -47,7 +46,7 @@ public class ConfigurationTests
             NetworkConfiguration = { MulticastAddress = "225.0.0.12", MulticastPort = 0 }
         };
 
-        Assert.Throws<ArgumentException>(()=>invalidGroupPort.CheckConfiguration(),
+        Assert.Throws<ArgumentException>(() => invalidGroupPort.CheckConfiguration(),
             "configuration with invalid group address should not be valid");
 
         var validMulticastConfig = new NodeConfiguration
@@ -56,7 +55,7 @@ public class ConfigurationTests
             NetworkConfiguration = { MulticastAddress = "225.0.0.12", MulticastPort = 7878 }
         };
 
-        Assert.DoesNotThrow(validMulticastConfig.CheckConfiguration, 
+        Assert.DoesNotThrow(validMulticastConfig.CheckConfiguration,
             "configuration with valid multicast group should be valid");
     }
 
@@ -65,7 +64,7 @@ public class ConfigurationTests
     {
         var cfg = new NodeConfiguration
         {
-            ClusterName = "PROD", 
+            ClusterName = "PROD",
             HeartbeatPeriodInMilliseconds = 500,
             NodeIdPolicy = NodeIdPolicy.ImplicitIpAndPort,
             NetworkConfiguration = new()

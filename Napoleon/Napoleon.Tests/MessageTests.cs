@@ -33,7 +33,8 @@ public class MessageTests
     public void Generate_and_test_valid_heartbeat_messages()
     {
         var cfg = ConfigurationHelper.CreateDefault("test");
-        var hb1 = MessageHelper.CreateHeartbeat(cfg, Guid.NewGuid().ToString(), StatusInCluster.Follower, Server.Server.GetLocalIpAddress());
+        var hb1 = MessageHelper.CreateHeartbeat(cfg, Guid.NewGuid().ToString(), StatusInCluster.Follower,
+            ClusterCoordinator.GetLocalIpAddress());
 
         Assert.That(hb1.IsValidHeartbeat());
 
@@ -49,22 +50,16 @@ public class MessageTests
     {
         SemaphoreSlim blocking = new(0);
 
-        var task = Task.Run(async () =>
-        {
-            await blocking.WaitAsync();
-        });
+        var task = Task.Run(async () => { await blocking.WaitAsync(); });
 
         await Task.Delay(100);
 
         Assert.That(task.Status, Is.EqualTo(TaskStatus.WaitingForActivation));
-        
+
         blocking.Release();
 
         await Task.Delay(100);
 
         Assert.That(task.Status, Is.EqualTo(TaskStatus.RanToCompletion));
-        
     }
-
-    
 }

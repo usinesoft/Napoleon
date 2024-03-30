@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using Napoleon.Server.SharedData;
 
 namespace Napoleon.Server.RequestReply;
 
@@ -26,7 +27,7 @@ public static class MessageExtensions
             [RequestConstants.PropertyNameIsException] = true,
             [RequestConstants.PropertyNameExceptionMessage] = exception.Message
         };
-        
-        return  JsonSerializer.Serialize(exceptionResponse);
+
+        return JsonSerializer.Serialize(exceptionResponse, SerializationContext.Default.JsonObject);
     }
 }

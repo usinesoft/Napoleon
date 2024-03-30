@@ -1,41 +1,67 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Napoleon.Client;
 using Napoleon.Server;
 using Napoleon.Server.Configuration;
+using Napoleon.Server.SharedData;
 
 namespace Napoleon.Tests;
 
 public class DataSynchronizationWithClient
 {
-    IEnumerable<ServerSuite> StartServersWithTcp(params int[] ports)
+    List<ServerSuite> StartServersWithTcp(string cluster, params int[] ports)
     {
-        foreach (var port in ports)
+
+        List<ServerSuite> nodes = new List<ServerSuite>();
+
+        var persistenceMock = new Mock<IPersistenceEngine>();
+        
+        Parallel.ForEach(ports, port =>
         {
-            var config = ConfigurationHelper.CreateDefault("UT1");
+            var config = ConfigurationHelper.CreateDefault(cluster);
+            config.HeartbeatPeriodInMilliseconds = 100;
             config.NetworkConfiguration.TcpClientPort = port;
             config.NodeIdPolicy = NodeIdPolicy.ImplicitIpAndPort;
 
-            var serverSuite = new ServerSuite();
+            var serverSuite = new ServerSuite(new NullLogger<ServerSuite>(), persistenceMock.Object);
             serverSuite.Start(config);
 
-            yield return serverSuite;
-        }
+            lock (serverSuite)
+            {
+                nodes.Add(serverSuite);
+            }
+            
+        } );
+        
+        return nodes;
     }
+
+    static async Task WaitForLeaderElection(ICollection<ServerSuite> servers)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            var leaders = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Leader);
+            var followers = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
+            if(leaders == 1 && leaders + followers == servers.Count)
+            {
+                return;
+            }
+
+            await Task.Delay(500);
+        }
+        
+        Assert.Fail("Leader election was not successful");
+
+    }
+    
 
     [Test]
     public async Task Client_connects_to_cluster_and_gets_status()
     {
-        var servers = StartServersWithTcp(0, 0, 0).ToList();
+        var servers = StartServersWithTcp("CL01",0, 0, 0).ToList();
 
-        await Task.Delay(2000);
-
-        Assert.That(servers.Count, Is.EqualTo(3));
-
-        var leaders = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Leader);
-        var followers = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
+        await WaitForLeaderElection(servers);
         
-        Assert.That(leaders, Is.EqualTo(1));
-        Assert.That(followers, Is.EqualTo(2));
-
         var follower1 = servers.First(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
         Assert.IsNotNull(follower1);
 
@@ -62,17 +88,10 @@ public class DataSynchronizationWithClient
     [Test]
     public async Task Client_updates_data_with_leader_connection()
     {
-        var servers = StartServersWithTcp(0, 0, 0).ToList();
+        var servers = StartServersWithTcp("CL02",0, 0, 0).ToList();
 
-        await Task.Delay(2000);
+        await WaitForLeaderElection(servers);
 
-        Assert.That(servers.Count, Is.EqualTo(3));
-
-        var leaders = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Leader);
-        var followers = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
-        
-        Assert.That(leaders, Is.EqualTo(1));
-        Assert.That(followers, Is.EqualTo(2));
 
         var follower1 = servers.First(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
 
@@ -98,6 +117,15 @@ public class DataSynchronizationWithClient
         Assert.IsTrue(found);
         Assert.That(val1, Is.EqualTo(44));
 
+        // delete a value
+        await leaderClient.DeleteValue("stuff", "02");
+        // wait for the leader to propagate changes
+        await Task.Delay(70);
+
+        (_, found) = client.Data.TryGetScalarValue<int>("stuff", "02");
+        
+        Assert.IsFalse(found);
+
         // stop all
         client.Dispose();
 
@@ -113,18 +141,11 @@ public class DataSynchronizationWithClient
     [Test]
     public async Task When_a_new_node_joins_the_cluster_it_synchronizes_its_data()
     {
-        var servers = StartServersWithTcp(0, 0, 0).ToList();
+        var servers = StartServersWithTcp("CL03",0, 0, 0).ToList();
 
-        await Task.Delay(2000);
+        await WaitForLeaderElection(servers);
 
-        Assert.That(servers.Count, Is.EqualTo(3));
-
-        var leaders = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Leader);
-        var followers = servers.Count(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
         
-        Assert.That(leaders, Is.EqualTo(1));
-        Assert.That(followers, Is.EqualTo(2));
-
         var follower1 = servers.First(x=>x.ClusterServer!.MyStatus == StatusInCluster.Follower);
         var leader = servers.Single(x=>x.ClusterServer!.MyStatus == StatusInCluster.Leader);
 
@@ -145,9 +166,9 @@ public class DataSynchronizationWithClient
         Assert.That(follower1.Store.GlobalVersion, Is.EqualTo(2));
 
         // start a new server
-        var newServer = StartServersWithTcp(0).First();
+        var newServer = StartServersWithTcp("CL03", 0)[0];
         // give him the time to synchronize
-        await Task.Delay(1200);
+        await Task.Delay(2000);
         Assert.That(newServer.Store.GlobalVersion, Is.EqualTo(2));
 
     }

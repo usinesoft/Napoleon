@@ -3,7 +3,7 @@
   "ClusterName": "PROD",
   // Each node can have a different heart-beat period. The default if 500 milliseconds
   "HeartbeatPeriodInMilliseconds": 500,
-  
+
   // How the unique node id is produced: Possible values : Guid, Explicit, ImplicitIpAndPort
   "NodeIdPolicy": "ImplicitIpAndPort",
   // Explicit node id (used only if NodeIdPolicy is Explicit)

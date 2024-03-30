@@ -5,17 +5,27 @@ using Napoleon.Server.SharedData;
 namespace Napoleon.Server.RequestReply;
 
 /// <summary>
-/// TCP server that handles:
+///     TCP server that handles:
 ///     - Requests from clients (data sync, cluster status)
 ///     - Data synchronization requests from other servers
 /// </summary>
 public sealed class DataServer : IDisposable
 {
+    private readonly DataStore _dataStore;
     private readonly RawServer _rawServer = new();
 
-    private readonly DataStore _dataStore;
-
     private readonly IServer _server;
+
+    public DataServer(DataStore dataStore, IServer server)
+    {
+        _dataStore = dataStore;
+        _server = server;
+    }
+
+    public void Dispose()
+    {
+        _rawServer.Dispose();
+    }
 
 
     /// <summary>
@@ -33,21 +43,22 @@ public sealed class DataServer : IDisposable
         if (value.ValueKind == JsonValueKind.Undefined)
             return Task.FromResult<string?>(null);
 
-        return Task.FromResult<string?>(JsonSerializer.Serialize(value));
+        return Task.FromResult<string?>(JsonSerializer.Serialize(value, SerializationContext.Default.JsonElement));
     }
 
     /// <summary>
-    /// Precondition for data altering operations
+    ///     Precondition for data altering operations
     /// </summary>
     /// <exception cref="NotSupportedException"></exception>
     private void RequireLeader()
     {
         if (_server.MyStatus != StatusInCluster.Leader)
-            throw new NotSupportedException("A request to change data was received by a node which is not the leader");
+            throw new NotSupportedException(
+                $"A request to change data was received by a node which is not the leader. Status = {_server.MyStatus}");
     }
 
     /// <summary>
-    /// Delete a key from a collection. Returns false if not found
+    ///     Delete a key from a collection. Returns false if not found
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -65,7 +76,7 @@ public sealed class DataServer : IDisposable
 
 
     /// <summary>
-    /// Add a key/value or update the value of a key
+    ///     Add a key/value or update the value of a key
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -74,7 +85,7 @@ public sealed class DataServer : IDisposable
     {
         RequireLeader();
 
-        
+
         var collection = request.GetString("collection");
         var key = request.GetString("key");
         var value = request.GetValue("value");
@@ -86,7 +97,7 @@ public sealed class DataServer : IDisposable
     }
 
     /// <summary>
-    /// Return a list of nodes in the cluster with their information
+    ///     Return a list of nodes in the cluster with their information
     /// </summary>
     /// <param name="_"></param>
     /// <returns></returns>
@@ -95,15 +106,15 @@ public sealed class DataServer : IDisposable
         var status = _server.AllNodes();
 
         return Task.FromResult<string?>(JsonSerializer.Serialize(status,
-            ItemSerializationContext.Default.NodeStatusArray));
+            SerializationContext.Default.NodeStatusArray));
     }
 
 
     /// <summary>
-    /// Used for data synchronization. Get all the changes between two versions.
-    /// Two modes:
-    /// - return the ordered list of changes even if empty
-    /// - return non empty list of changes or await for data to be changed (the caller is already synchronized)
+    ///     Used for data synchronization. Get all the changes between two versions.
+    ///     Two modes:
+    ///     - return the ordered list of changes even if empty
+    ///     - return non empty list of changes or await for data to be changed (the caller is already synchronized)
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -129,18 +140,12 @@ public sealed class DataServer : IDisposable
 
 
         foreach (var change in changes)
-            yield return JsonSerializer.Serialize(change, ItemSerializationContext.Default.Item);
-    }
-
-    public DataServer(DataStore dataStore, IServer server)
-    {
-        _dataStore = dataStore;
-        _server = server;
+            yield return JsonSerializer.Serialize(change, SerializationContext.Default.Item);
     }
 
 
     /// <summary>
-    /// Start the server (non blocking)
+    ///     Start the server (non blocking)
     /// </summary>
     /// <param name="port">A specific port or 0 if a free port will be selected automatically</param>
     /// <exception cref="ApplicationException"></exception>
@@ -157,10 +162,5 @@ public sealed class DataServer : IDisposable
             _ => throw new ApplicationException("Test exception (you requested it)"));
 
         return _rawServer.Start(port);
-    }
-
-    public void Dispose()
-    {
-        _rawServer.Dispose();
     }
 }

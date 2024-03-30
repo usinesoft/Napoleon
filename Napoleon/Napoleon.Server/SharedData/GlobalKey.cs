@@ -1,7 +1,7 @@
 ﻿namespace Napoleon.Server.SharedData;
 
 /// <summary>
-/// Uniquely identify an item in the store
+///     Uniquely identify an item in the store
 /// </summary>
 /// <param name="Collection"></param>
 /// <param name="Key"></param>
