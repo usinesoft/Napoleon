@@ -7,5 +7,5 @@ public class DataChangedEventArgs : EventArgs
         ChangedData = changedData;
     }
 
-    public Item ChangedData { get; private set; }
+    public Item ChangedData { get; }
 }

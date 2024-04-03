@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using Moq;
 using Napoleon.Server;
 using Napoleon.Server.RequestReply;
@@ -11,11 +10,15 @@ namespace NetworkBenchmark;
 [MemoryDiagnoser]
 public class DataSynchronizationTest
 {
-    
-    private DataServer _server;
+    private readonly Mock<IServer> _serverMock = new();
     private DataClient _client;
 
-    readonly Mock<IServer> _serverMock = new();
+    private DataServer _server;
+
+
+    [Params(10, 100, 1000)]
+    // ReSharper disable once MemberCanBePrivate.Global
+    public int ChangeCount { get; set; }
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -23,24 +26,19 @@ public class DataSynchronizationTest
         var dataStore = new DataStore();
 
         // apply 1000 changes to the data store
-        for (int i = 0; i < 1000; i++)
-        {
-            dataStore.PutValue("test", $"key{i:D5}", i);
-        }
+        for (var i = 0; i < 1000; i++) dataStore.PutValue("test", $"key{i:D5}", i);
 
-        _server = new DataServer(dataStore, _serverMock.Object);
+        _server = new(dataStore, _serverMock.Object);
 
 
         _server.Start(48555);
 
 
         Task.Delay(100).Wait();
-                
 
-        _client = new DataClient();
+
+        _client = new();
         _client.Connect("localhost", 48555);
-
-        
     }
 
     [GlobalCleanup]
@@ -50,11 +48,6 @@ public class DataSynchronizationTest
         _server.Dispose();
     }
 
-
-    [Params(10, 100, 1000)] 
-    // ReSharper disable once MemberCanBePrivate.Global
-    public int ChangeCount { get; set; }
-
     [Benchmark]
     public async Task DataSynchronization()
     {
@@ -62,15 +55,11 @@ public class DataSynchronizationTest
 
 
         await foreach (var change in _client.GetAllChangesSinceVersion(1000 - ChangeCount))
-        {
-            clientDataStore.ApplyChanges(new []{change});
-        }
-        
-
+            clientDataStore.ApplyChanges(new[] { change });
     }
 
     /// <summary>
-    /// Used to run under debugger
+    ///     Used to run under debugger
     /// </summary>
     /// <returns></returns>
     public async Task Debug()
@@ -80,6 +69,4 @@ public class DataSynchronizationTest
         await DataSynchronization();
         await DataSynchronization();
     }
-
-        
 }

@@ -2,16 +2,9 @@
 
 namespace Napoleon.Server.SharedData;
 
-public partial class DataStore:IDataStore, IReadOnlyDataStore
+public partial class DataStore : IDataStore, IReadOnlyDataStore
 {
     private readonly object _sync = new();
-
-
-
-    /// <summary>
-    ///     Each modification of an item in the store increments this value
-    /// </summary>
-    public int GlobalVersion { get; private set; }
 
     /// <summary>
     ///     Indexed data
@@ -20,92 +13,59 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
 
 
     /// <summary>
-    ///     Verify that the global version is present on a key/value (and exactly one).
-    ///     Every key/value should have a unique version
+    ///     Each modification of an item in the store increments this value
     /// </summary>
-    private void CheckConsistency()
+    public int GlobalVersion { get; private set; }
+
+
+    /// <summary>
+    ///     Individual changes can be applied only in order to guarantee data consistency.
+    ///     They are usually received through an async channel that does not guarantee that the messages are delivered in-order
+    /// </summary>
+    /// <param name="change"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public bool TryApplyAsyncChange(Item change)
     {
-        var maxVersion = 0;
-        HashSet<int> versionsOnKeys = new();
-        foreach (var item in Items)
-        {
-            var version = item.Value.Version;
-            var newOne = versionsOnKeys.Add(version);
-            if (!newOne) throw new FormatException($"The version {version} found more than once.");
-
-            if (version > maxVersion) maxVersion = version;
-        }
-
-        if (GlobalVersion != maxVersion)
-            throw new FormatException(
-                $"Global version {GlobalVersion} different from the most recent version of a key/value {maxVersion}.");
-    }
-
-    public void PutSimpleValue(string collection, string key, string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException(nameof(value));
-
-        // value can be a json document or a simple string
-        value  = value.Trim();
-        if (!value.StartsWith('{'))
-        {
-            value = $"\"{value}\"";
-        }
-        var jsonValue = JsonDocument.Parse(value).RootElement;
-
-        PutValue(collection, key, jsonValue);
-    }
-
-    public void PutSimpleValue(string collection, string key, bool value)
-    {
-        var jsonValue = JsonDocument.Parse(value ? "true" : "false").RootElement;
-
-        PutValue(collection, key, jsonValue);
-    }
-
-    public void PutSimpleValue(string collection, string key, int value)
-    {
-        var jsonValue = JsonDocument.Parse($"{value}").RootElement;
-
-        PutValue(collection, key, jsonValue);
-    }
-
-    public void PutValue(string collection, string key, object value)
-    {
-        var jsonValue = JsonSerializer.SerializeToElement(value);
-
-        PutValue(collection, key, jsonValue);
-    }
-
-
-    public void PutValue(string collection, string key, JsonElement value)
-    {
-        Item changedItem;
-
-        var k = new GlobalKey(collection, key);
-
-        var item = new Item
-        {
-            Collection = collection,
-            Key = key,
-            Value = value.Clone(),
-            Version = GlobalVersion + 1
-        };
-
-        BeforeDataChanged?.Invoke(this, new(item) );
+        if (change == null) throw new ArgumentNullException(nameof(change));
+        change.CheckValid();
 
         lock (_sync)
         {
-            GlobalVersion++;
+            if (GlobalVersion != change.Version - 1) // strong constraint
+                return false;
 
-            
-            Items[k] = item;
-
-            changedItem = item;
+            Items[new(change.Collection!, change.Key!)] = change;
+            GlobalVersion = change.Version;
         }
 
-        AfterDataChanged?.Invoke(this, new(changedItem));
+        return true;
     }
+
+
+    /// <summary>
+    ///     Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
+    /// </summary>
+    /// <param name="changes"></param>
+    public void ApplyChanges(IEnumerable<Item> changes)
+    {
+        lock (_sync)
+        {
+            foreach (var change in changes)
+            {
+                change.CheckValid();
+
+                if (change.Version <= GlobalVersion)
+                    throw new NotSupportedException(
+                        $"An ordered sequence of changes has been received that is inconsistent with the data-store version.\nReceived change:{change} MyVersion = {GlobalVersion}");
+
+                Items[new(change.Collection!, change.Key!)] = change;
+                GlobalVersion = change.Version;
+            }
+        }
+    }
+
+    public event EventHandler<DataChangedEventArgs>? AfterDataChanged;
 
 
     /// <summary>
@@ -165,6 +125,92 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
         }
     }
 
+
+    /// <summary>
+    ///     Verify that the global version is present on a key/value (and exactly one).
+    ///     Every key/value should have a unique version
+    /// </summary>
+    private void CheckConsistency()
+    {
+        var maxVersion = 0;
+        HashSet<int> versionsOnKeys = new();
+        foreach (var item in Items)
+        {
+            var version = item.Value.Version;
+            var newOne = versionsOnKeys.Add(version);
+            if (!newOne) throw new FormatException($"The version {version} found more than once.");
+
+            if (version > maxVersion) maxVersion = version;
+        }
+
+        if (GlobalVersion != maxVersion)
+            throw new FormatException(
+                $"Global version {GlobalVersion} different from the most recent version of a key/value {maxVersion}.");
+    }
+
+    public void PutSimpleValue(string collection, string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException(nameof(value));
+
+        // value can be a json document or a simple string
+        value = value.Trim();
+        if (!value.StartsWith('{')) value = $"\"{value}\"";
+        var jsonValue = JsonDocument.Parse(value).RootElement;
+
+        PutValue(collection, key, jsonValue);
+    }
+
+    public void PutSimpleValue(string collection, string key, bool value)
+    {
+        var jsonValue = JsonDocument.Parse(value ? "true" : "false").RootElement;
+
+        PutValue(collection, key, jsonValue);
+    }
+
+    public void PutSimpleValue(string collection, string key, int value)
+    {
+        var jsonValue = JsonDocument.Parse($"{value}").RootElement;
+
+        PutValue(collection, key, jsonValue);
+    }
+
+    public void PutValue(string collection, string key, object value)
+    {
+        var jsonValue = JsonSerializer.SerializeToElement(value);
+
+        PutValue(collection, key, jsonValue);
+    }
+
+
+    public void PutValue(string collection, string key, JsonElement value)
+    {
+        Item changedItem;
+
+        var k = new GlobalKey(collection, key);
+
+        var item = new Item
+        {
+            Collection = collection,
+            Key = key,
+            Value = value.Clone(),
+            Version = GlobalVersion + 1
+        };
+
+        BeforeDataChanged?.Invoke(this, new(item));
+
+        lock (_sync)
+        {
+            GlobalVersion++;
+
+
+            Items[k] = item;
+
+            changedItem = item;
+        }
+
+        AfterDataChanged?.Invoke(this, new(changedItem));
+    }
+
     public bool DeleteValue(string collection, string key)
     {
         var k = new GlobalKey(collection, key);
@@ -183,11 +229,10 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
             item.Version = GlobalVersion;
 
             changedItem = item;
-            
         }
 
         AfterDataChanged?.Invoke(this, new(changedItem));
-        
+
 
         return true;
     }
@@ -201,10 +246,7 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
         var changes = new List<Item>();
 
         // do not work too hard if nothing changed
-        if (baseVersion == GlobalVersion)
-        {
-            return changes;
-        }
+        if (baseVersion == GlobalVersion) return changes;
 
 
         lock (_sync)
@@ -217,55 +259,5 @@ public partial class DataStore:IDataStore, IReadOnlyDataStore
         return changes.OrderBy(x => x.Version).ToList();
     }
 
-
-    /// <summary>
-    ///     Individual changes can be applied only in order to guarantee data consistency.
-    ///     They are usually received through an async channel that does not guarantee that the messages are delivered in-order
-    /// </summary>
-    /// <param name="change"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    public bool TryApplyAsyncChange(Item change)
-    {
-        if (change == null) throw new ArgumentNullException(nameof(change));
-        change.CheckValid();
-
-        lock (_sync)
-        {
-            if (GlobalVersion != change.Version - 1) // strong constraint
-                return false;
-
-            Items[new(change.Collection!, change.Key!)] = change;
-            GlobalVersion = change.Version;
-        }
-
-        return true;
-    }
-
-
-    /// <summary>
-    ///     Apply an ordered sequence of changes. It comes through a channel that guarantees ordered delivery
-    /// </summary>
-    /// <param name="changes"></param>
-    public void ApplyChanges(IEnumerable<Item> changes)
-    {
-        lock (_sync)
-        {
-            foreach (var change in changes)
-            {
-                change.CheckValid();
-
-                if (change.Version <= GlobalVersion)
-                    throw new NotSupportedException(
-                        $"An ordered sequence of changes has been received that is inconsistent with the data-store version.\nReceived change:{change} MyVersion = {GlobalVersion}");
-
-                Items[new(change.Collection!, change.Key!)] = change;
-                GlobalVersion = change.Version;
-            }
-        }
-    }
-
-    public event EventHandler<DataChangedEventArgs>? AfterDataChanged;
-    
     public event EventHandler<DataChangedEventArgs>? BeforeDataChanged;
 }

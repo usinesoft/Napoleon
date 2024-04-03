@@ -142,13 +142,14 @@ public sealed class ClusterClient : IDisposable
         {
             await Task.Delay(100 * i);
 
-            await GetClusterStatus(); // in case the leader has changed
-
+            
             var leader = ClusterStatus.Find(x => x.StatusInCluster == StatusInCluster.Leader);
             if (leader != null) connected = leaderConnection.TryConnect(leader.TcpAddress, leader.TcpClientPort);
 
             if (connected)
                 break;
+
+            await GetClusterStatus(); // in case the leader has changed
         }
 
         if (connected) return leaderConnection;

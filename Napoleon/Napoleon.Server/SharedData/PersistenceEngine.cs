@@ -18,9 +18,16 @@ public class PersistenceEngine : IPersistenceEngine
         throw new NotImplementedException();
     }
 
-    public void SaveChange(Item change)
+    public void SaveChange(Item change, string? dataDirectory)
     {
-        throw new NotImplementedException();
+        if (dataDirectory != null)
+        {
+            var json = JsonSerializer.Serialize(change, SerializationContext.Default.Item);
+
+            var fileName = $"change{change.Version:D5}.json";
+
+            File.WriteAllText(Path.Combine(dataDirectory, fileName), json);
+        }
     }
 
     public void LoadData(DataStore dataStore, string dataDirectory)
@@ -32,10 +39,7 @@ public class PersistenceEngine : IPersistenceEngine
         {
             var json = File.ReadAllText(dataPath);
             var jd = JsonSerializer.Deserialize(json, SerializationContext.Default.JsonDocument);
-            if (jd != null)
-            {
-                dataStore.DeserializeFromDocument(jd);
-            }
+            if (jd != null) dataStore.DeserializeFromDocument(jd);
         }
 
         var changes = Directory.EnumerateFiles(dataDirectory, "change*.json").ToList();
@@ -55,15 +59,12 @@ public class PersistenceEngine : IPersistenceEngine
 
         try
         {
-            var doc =dataStore.SerializeToDocument();
+            var doc = dataStore.SerializeToDocument();
             var jsonAll = JsonSerializer.Serialize(doc, SerializationContext.Default.JsonDocument);
             File.WriteAllText(dataPath, jsonAll);
 
-        
-            foreach (var change in changes)
-            {
-                File.Delete(change);
-            }
+
+            foreach (var change in changes) File.Delete(change);
 
             _logger.LogInformation("End compacting data files ");
         }

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Napoleon.Server;
 using Napoleon.Server.Configuration;
 using Napoleon.Server.Messages;
@@ -161,8 +163,11 @@ public class UdpTests
 
         var dataStore = new DataStore();
 
-        var server = new ClusterCoordinator(publisher, consumer, dataStore, config);
-        server.Run();
+        var persistenceMock = new Mock<IPersistenceEngine>();
+
+        var server = new ClusterCoordinator(publisher, consumer, dataStore, config, new NullLogger<ClusterCoordinator>(), persistenceMock.Object);
+
+        server.Start();
 
         return server;
     }

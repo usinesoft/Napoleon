@@ -2,12 +2,12 @@
 
 public interface IDataStore
 {
-    public event EventHandler<DataChangedEventArgs> AfterDataChanged;
-
     /// <summary>
     ///     Each modification of an item in the store increments this value
     /// </summary>
     int GlobalVersion { get; }
+
+    public event EventHandler<DataChangedEventArgs> AfterDataChanged;
 
     /// <summary>
     ///     Individual changes can be applied only in order to guarantee data consistency.

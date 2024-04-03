@@ -23,7 +23,7 @@ public interface IReadOnlyDataStore
 
     /// <summary>
     ///     Return a typed simple value. As the default value can be a real value the boolean
-    /// should be checked to know if the value was found
+    ///     should be checked to know if the value was found
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="collection"></param>

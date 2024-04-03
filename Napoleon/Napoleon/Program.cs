@@ -1,7 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Napoleon.Server;
 using Napoleon.Server.Configuration;
+using Napoleon.Server.PublishSubscribe;
+using Napoleon.Server.PublishSubscribe.UdpImplementation;
 using Napoleon.Server.SharedData;
 using Serilog;
 using Spectre.Console;
@@ -10,13 +11,12 @@ namespace Napoleon;
 
 internal static class Program
 {
-
     private static void ConfigToConsole(NodeConfiguration configuration)
     {
         AnsiConsole.WriteLine();
 
         var table = new Table();
-        
+
         table.Title("[deepskyblue1]Configuration parameters[/]");
 
         table.AddColumn("param").AddColumn("value");
@@ -25,10 +25,7 @@ internal static class Program
         table.AddRow("node-id policy", $"{configuration.NodeIdPolicy}");
         table.AddRow("data directory", $"{configuration.DataDirectory}");
 
-        if (configuration.NodeIdPolicy == NodeIdPolicy.ExplicitName)
-        {
-            table.AddRow("node-id", $"{configuration.NodeId}");
-        }
+        if (configuration.NodeIdPolicy == NodeIdPolicy.ExplicitName) table.AddRow("node-id", $"{configuration.NodeId}");
 
         table.AddRow("client port", $"{configuration.NetworkConfiguration.TcpClientPort}");
         table.AddRow("server2server", $"{configuration.NetworkConfiguration.ServerToServerProtocol}");
@@ -40,18 +37,14 @@ internal static class Program
         }
         else
         {
-            foreach (var server in configuration.NetworkConfiguration.ServerLists)
-            {
-                table.AddRow("server", server);
-            }
+            foreach (var server in configuration.NetworkConfiguration.ServerLists) table.AddRow("server", server);
         }
-
 
 
         AnsiConsole.Write(table);
     }
 
-    private static async Task ServerStatusToConsole(Server.Server myServer, NodeConfiguration configuration)
+    private static async Task ServerStatusToConsole(ClusterCoordinator myServer, NodeConfiguration configuration)
     {
         var table = new Table();
         AnsiConsole.WriteLine();
@@ -70,17 +63,16 @@ internal static class Program
 
             while (true)
             {
-                
                 Console.Title =
                     $"{myServer.MyStatus} in cluster {configuration.ClusterName} ( {myServer.NodesAliveInCluster} nodes alive)";
 
                 table.Rows.Clear();
-                
+
 
                 foreach (var server in myServer.AllNodes())
                 {
                     var alive = server.IsAlive;
-                    
+
                     var strAlive = alive ? "[green]alive[/]" : "[red]dead[/]";
 
                     var myself = server.NodeId == myServer.MyNodeId;
@@ -89,52 +81,64 @@ internal static class Program
 
                     var status = alive ? server.StatusInCluster.ToString() : " ";
 
-                    table.AddRow(strMyself, server.NodeId, status, server.TcpAddress, server.TcpClientPort.ToString(), server.DataVersion.ToString(), strAlive);
+                    table.AddRow(strMyself, server.NodeId, status, server.TcpAddress, server.TcpClientPort.ToString(),
+                        server.DataVersion.ToString(), strAlive);
                 }
 
 
                 ctx.Refresh();
-                
+
                 await Task.Delay(400);
             }
         });
-
-        
-       
     }
 
-    private static ServiceProvider CreateServices()
+    private static ServiceProvider CreateServices(NodeConfiguration config)
     {
-
+        // add the tcp port to the log file name name to make it unique for a machine
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
-            .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
+            .WriteTo.File($"logs/log{config.NetworkConfiguration.TcpClientPort}.txt", rollingInterval: RollingInterval.Day)
             .CreateLogger();
+
+
+        var publisher = new Publisher(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
+
         
+        var consumer = new Consumer(config.NetworkConfiguration.MulticastAddress!,
+            config.NetworkConfiguration.MulticastPort);
+
+        var dataStore = new DataStore();
+
+
         var serviceProvider = new ServiceCollection()
-            .AddLogging(builder=>builder.AddSerilog(Log.Logger))
+            .AddLogging(builder => builder.AddSerilog(Log.Logger))
             .AddSingleton<ServerSuite>()
+            .AddSingleton<ClusterCoordinator>()
             .AddSingleton<IPersistenceEngine, PersistenceEngine>()
+            .AddSingleton<IPublisher>(publisher)
+            .AddSingleton<IConsumer>(consumer)
+            .AddSingleton<IReadOnlyDataStore>(dataStore)
+            .AddSingleton(dataStore)
             .BuildServiceProvider();
 
-        return serviceProvider; 
+        return serviceProvider;
     }
-    
+
     private static async Task Main(string[] args)
     {
         try
         {
-            string configurationFile = "config.json";
-            if (args.Length > 0)
-            {
-                configurationFile = args[0];
-            }
+            var configurationFile = "config.json";
+            if (args.Length > 0) configurationFile = args[0];
             // Load and display configuration
             var config = ConfigurationHelper.TryLoadFromFile(configurationFile);
 
             if (config == null)
             {
-                AnsiConsole.Markup("[yellow] Can not load configuration from file[/] [underline yellow]config.json.[/] Using default!");
+                AnsiConsole.Markup(
+                    "[yellow] Can not load configuration from file[/] [underline yellow]config.json.[/] Using default!");
                 config = ConfigurationHelper.CreateDefault("DEV");
             }
 
@@ -142,20 +146,20 @@ internal static class Program
 
             ConfigToConsole(config);
 
-            var services = CreateServices();
+            var services = CreateServices(config);
 
-            
-            using ServerSuite serverSuite = services.GetRequiredService<ServerSuite>();
-            
+
+            using var serverSuite = services.GetRequiredService<ServerSuite>();
+
             serverSuite.Start(config);
 
-            
+
             // wait for cluster status update
             await Task.Delay(config.HeartbeatPeriodInMilliseconds * 2);
-            
-            
+
+
             await ServerStatusToConsole(serverSuite.ClusterServer!, config);
-            
+
             Console.WriteLine("Stopping");
         }
         catch (Exception e)
