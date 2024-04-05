@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Napoleon.Server;
 using Napoleon.Server.RequestReply;
@@ -10,7 +11,7 @@ namespace Napoleon.Tests;
 
 public class RequestReplyTests
 {
-    private readonly Mock<IServer> _serverMock = new();
+    private readonly Mock<ICoordinator> _serverMock = new();
 
 
     [Test]
@@ -21,7 +22,7 @@ public class RequestReplyTests
 
         var dataStore = new DataStore();
 
-        using var dataServer = new DataServer(dataStore, _serverMock.Object);
+        using var dataServer = new DataServer(dataStore,  new NullLogger<DataServer>());
 
 
         var port = dataServer.Start(0);
@@ -64,12 +65,15 @@ public class RequestReplyTests
     [Test]
     public async Task Trying_to_write_data_on_a_server_which_is_not_leader_fails()
     {
-        _serverMock.Setup(s => s.MyStatus).Returns(StatusInCluster.Follower);
-
-
+        
         var dataStore = new DataStore();
 
-        using var dataServer = new DataServer(dataStore, _serverMock.Object);
+        var coordinatorMock = new Mock<ICoordinator>();
+        coordinatorMock.Setup(s => s.MyStatus).Returns(StatusInCluster.Follower);
+
+
+        using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
+        dataServer.Coordinator = coordinatorMock.Object;
 
 
         var port = dataServer.Start(0);
@@ -107,7 +111,7 @@ public class RequestReplyTests
     {
         var dataStore = new DataStore();
 
-        using var dataServer = new DataServer(dataStore, _serverMock.Object);
+        using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
 
         var port = dataServer.Start(0);
         await Task.Delay(100);
@@ -134,7 +138,7 @@ public class RequestReplyTests
     {
         var dataStore = new DataStore();
 
-        using var dataServer = new DataServer(dataStore, _serverMock.Object);
+        using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
 
         var port = dataServer.Start(0);
         await Task.Delay(100);
@@ -157,7 +161,9 @@ public class RequestReplyTests
     {
         var dataStore = new DataStore();
 
-        using var dataServer = new DataServer(dataStore, _serverMock.Object);
+        var coordinator = new Mock<ICoordinator>().Object;
+        using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
+        dataServer.Coordinator = coordinator;
 
         var port = dataServer.Start(0);
 
@@ -188,8 +194,9 @@ public class RequestReplyTests
     public async Task Synchronize_data_stores_with_tcp_when_multiple_keys_changed()
     {
         var dataStore = new DataStore();
-
-        using var dataServer = new DataServer(dataStore, _serverMock.Object);
+        var coordinator = new Mock<ICoordinator>().Object;
+        using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
+        dataServer.Coordinator = coordinator;
 
         var port = dataServer.Start(0);
         await Task.Delay(100);

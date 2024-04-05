@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using BenchmarkDotNet.Attributes;
-using Moq;
-using Napoleon.Server;
+using Microsoft.Extensions.Logging.Abstractions;
 using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
 
@@ -39,7 +38,6 @@ public class DataRequestsTest
 }
 ";
 
-    private readonly Mock<IServer> _serverMock = new();
     private DataClient _client;
 
     private JsonElement _exampleData;
@@ -52,7 +50,7 @@ public class DataRequestsTest
     {
         var dataStore = new DataStore();
 
-        _server = new(dataStore, _serverMock.Object);
+        _server = new(dataStore, new NullLogger<DataServer>());
 
 
         _server.Start(48455);

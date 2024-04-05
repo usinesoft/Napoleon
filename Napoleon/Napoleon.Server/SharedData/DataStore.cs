@@ -215,23 +215,26 @@ public partial class DataStore : IDataStore, IReadOnlyDataStore
     {
         var k = new GlobalKey(collection, key);
 
-        Item? changedItem;
+        // do not consider it a change if already deleted
+        lock (_sync)
+        {
+            if (!Items.TryGetValue(k, out var itemToDelete) || itemToDelete.IsDeleted) return false;
+        }
+
+        var changedData = new Item
+            { Collection = collection,Key = key,IsDeleted = true, Value = JsonDocument.Parse("null").RootElement, Version = GlobalVersion+1};
+
+        BeforeDataChanged?.Invoke(this, new DataChangedEventArgs(changedData));
 
         lock (_sync)
         {
-            if (!Items.TryGetValue(k, out var item) || item.IsDeleted) return false;
-
             // only increment if a change was made
             GlobalVersion++;
 
-            item.IsDeleted = true;
-            item.Value = JsonDocument.Parse("null").RootElement;
-            item.Version = GlobalVersion;
-
-            changedItem = item;
+            Items[k] = changedData;
         }
 
-        AfterDataChanged?.Invoke(this, new(changedItem));
+        AfterDataChanged?.Invoke(this, new(changedData));
 
 
         return true;

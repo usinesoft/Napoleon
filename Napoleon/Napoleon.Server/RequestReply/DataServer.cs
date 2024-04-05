@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Napoleon.Server.Messages;
 using Napoleon.Server.SharedData;
 
@@ -11,15 +12,29 @@ namespace Napoleon.Server.RequestReply;
 /// </summary>
 public sealed class DataServer : IDisposable
 {
+    #region injected dependencies
+
     private readonly DataStore _dataStore;
+    
+    private readonly ILogger<DataServer> _logger;
+
+    #endregion
+
+    /// <summary>
+    /// Lower level server manipulating raw data
+    /// </summary>
     private readonly RawServer _rawServer = new();
 
-    private readonly IServer _server;
 
-    public DataServer(DataStore dataStore, IServer server)
+    public ICoordinator? Coordinator { get; set; }
+
+    
+
+    public DataServer(DataStore dataStore, ILogger<DataServer> logger)
     {
         _dataStore = dataStore;
-        _server = server;
+        
+        _logger = logger;
     }
 
     public void Dispose()
@@ -40,6 +55,8 @@ public sealed class DataServer : IDisposable
 
         var value = _dataStore.TryGetValue(collection, key);
 
+        _logger.LogDebug($"Request to read {collection}.{key}");
+
         if (value.ValueKind == JsonValueKind.Undefined)
             return Task.FromResult<string?>(null);
 
@@ -52,9 +69,9 @@ public sealed class DataServer : IDisposable
     /// <exception cref="NotSupportedException"></exception>
     private void RequireLeader()
     {
-        if (_server.MyStatus != StatusInCluster.Leader)
+        if (Coordinator?.MyStatus != StatusInCluster.Leader)
             throw new NotSupportedException(
-                $"A request to change data was received by a node which is not the leader. Status = {_server.MyStatus}");
+                $"A request to change data was received by a node which is not the leader. Status = {Coordinator.MyStatus}");
     }
 
     /// <summary>
@@ -64,14 +81,24 @@ public sealed class DataServer : IDisposable
     /// <returns></returns>
     private Task<string?> DataDeleteHandler(JsonDocument request)
     {
-        RequireLeader();
+        try
+        {
+            RequireLeader();
 
-        var collection = request.GetString("collection");
-        var key = request.GetString("key");
+            var collection = request.GetString("collection");
+            var key = request.GetString("key");
 
-        var deleted = _dataStore.DeleteValue(collection, key);
+            var deleted = _dataStore.DeleteValue(collection, key);
 
-        return Task.FromResult<string?>(deleted ? "true" : "false");
+            _logger.LogDebug($"Request to delete {collection}.{key}");
+
+            return Task.FromResult<string?>(deleted ? "true" : "false");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError($"Exception while deleting a value:{e.Message}");
+            throw;
+        }
     }
 
 
@@ -83,17 +110,25 @@ public sealed class DataServer : IDisposable
     /// <exception cref="NotSupportedException"></exception>
     private Task<string?> DataWriteHandler(JsonDocument request)
     {
-        RequireLeader();
+        try
+        {
+            RequireLeader();
 
 
-        var collection = request.GetString("collection");
-        var key = request.GetString("key");
-        var value = request.GetValue("value");
+            var collection = request.GetString("collection");
+            var key = request.GetString("key");
+            var value = request.GetValue("value");
 
 
-        _dataStore.PutValue(collection, key, value);
+            _dataStore.PutValue(collection, key, value);
 
-        return Task.FromResult<string?>(null); // void response
+            return Task.FromResult<string?>(null); // void response
+        }
+        catch (Exception e)
+        {
+            _logger.LogDebug($"Exception when writing a value:{e.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -103,7 +138,9 @@ public sealed class DataServer : IDisposable
     /// <returns></returns>
     private Task<string?> ServerStatusHandler(JsonDocument _)
     {
-        var status = _server.AllNodes();
+        _logger.LogDebug("Request to get cluster status");
+
+        var status = Coordinator.AllNodes();
 
         return Task.FromResult<string?>(JsonSerializer.Serialize(status,
             SerializationContext.Default.NodeStatusArray));
@@ -124,20 +161,27 @@ public sealed class DataServer : IDisposable
 
         var blockIfNoChange = request.GetBool("blockIfNoChange", false);
 
-        await _server.WaitSyncingEnd(); // in case the server is in the middle of a synchronization operation
+        await Coordinator.WaitSyncingEnd(); // in case the server is in the middle of a synchronization operation
 
         var changes = _dataStore.GetChangesSince(startVersion);
+
+        _logger.LogDebug("Data synchronization request");
 
         // in this case the client wants to be answered only when data changes
         if (changes.Count == 0 && blockIfNoChange)
         {
+            _logger.LogDebug("No changes: awaiting for changes");
+
             var wakeUp = new WakeUpCall();
-            _server.WakeMeUpWhenDataChanged(wakeUp);
+            Coordinator.WakeMeUpWhenDataChanged(wakeUp);
 
             await wakeUp.WaitForCall();
             changes = _dataStore.GetChangesSince(startVersion);
+
+            _logger.LogDebug("Data changed: end awaiting");
         }
 
+        _logger.LogDebug($"Sending {changes.Count} changes");
 
         foreach (var change in changes)
             yield return JsonSerializer.Serialize(change, SerializationContext.Default.Item);

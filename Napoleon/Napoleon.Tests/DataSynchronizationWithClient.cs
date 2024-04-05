@@ -4,6 +4,7 @@ using Napoleon.Client;
 using Napoleon.Server;
 using Napoleon.Server.Configuration;
 using Napoleon.Server.PublishSubscribe.UdpImplementation;
+using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
 
 namespace Napoleon.Tests;
@@ -31,7 +32,9 @@ public class DataSynchronizationWithClient
                 store, config, new NullLogger<ClusterCoordinator>(), persistenceMock.Object
             );
 
-            var serverSuite = new ServerSuite(new NullLogger<ServerSuite>(), coordinator, persistenceMock.Object, store);
+            var dataServer = new DataServer(store, new NullLogger<DataServer>());
+
+            var serverSuite = new ServerSuite(new NullLogger<ServerSuite>(), coordinator, persistenceMock.Object, store, dataServer);
 
             serverSuite.Start(config);
 
@@ -119,7 +122,7 @@ public class DataSynchronizationWithClient
         // delete a value
         await leaderClient.DeleteValue("stuff", "02");
         // wait for the leader to propagate changes
-        await Task.Delay(70);
+        await Task.Delay(200);
 
         (_, found) = client.Data.TryGetScalarValue<int>("stuff", "02");
 

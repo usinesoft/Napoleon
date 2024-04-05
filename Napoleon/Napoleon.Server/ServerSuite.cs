@@ -21,25 +21,27 @@ public sealed class ServerSuite : IDisposable
 
 
     public ServerSuite(ILogger<ServerSuite> logger, ClusterCoordinator clusterServer,
-        IPersistenceEngine persistenceEngine, DataStore dataStore)
+        IPersistenceEngine persistenceEngine, DataStore dataStore, DataServer dataServer)
     {
         ClusterServer = clusterServer;
         _logger = logger;
         _persistenceEngine = persistenceEngine;
         Store = dataStore;
+        DataServer = dataServer;
+        DataServer.Coordinator = ClusterServer;
     }
 
     public DataStore Store { get; } 
 
 
-    private DataServer? DataServer { get; set; }
+    private DataServer DataServer { get; }
 
     private NodeConfiguration? Config { get; set; }
 
     public void Dispose()
     {
         ClusterServer.Dispose();
-        DataServer?.Dispose();
+        DataServer.Dispose();
     }
 
     /// <summary>
@@ -70,9 +72,7 @@ public sealed class ServerSuite : IDisposable
 
 
             _logger.LogInformation("Starting data server");
-            // this is the server responsible for client requests and synchronization requests from other servers
-            DataServer = new(Store, ClusterServer);
-
+            
             var port = DataServer.Start(config.NetworkConfiguration.TcpClientPort);
 
             // in case the port is dynamic 

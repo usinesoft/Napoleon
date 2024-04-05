@@ -12,7 +12,7 @@ namespace Napoleon.Server;
 /// <summary>
 ///     This class represents a server responsible for leader election and data synchronization
 /// </summary>
-public sealed class ClusterCoordinator : IDisposable, IServer
+public class ClusterCoordinator : IDisposable, ICoordinator
 {
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 

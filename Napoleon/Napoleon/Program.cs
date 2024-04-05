@@ -3,6 +3,7 @@ using Napoleon.Server;
 using Napoleon.Server.Configuration;
 using Napoleon.Server.PublishSubscribe;
 using Napoleon.Server.PublishSubscribe.UdpImplementation;
+using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
 using Serilog;
 using Spectre.Console;
@@ -120,7 +121,10 @@ internal static class Program
             .AddSingleton<IPublisher>(publisher)
             .AddSingleton<IConsumer>(consumer)
             .AddSingleton<IReadOnlyDataStore>(dataStore)
+            .AddSingleton<IDataStore>(dataStore)
+            .AddSingleton(config)
             .AddSingleton(dataStore)
+            .AddSingleton<DataServer>()
             .BuildServiceProvider();
 
         return serviceProvider;
@@ -165,6 +169,7 @@ internal static class Program
         catch (Exception e)
         {
             AnsiConsole.Markup($"[yellow] Exception : [/] [underline yellow]{e.Message}[/]");
+            
         }
     }
 }

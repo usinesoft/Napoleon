@@ -1,6 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Moq;
-using Napoleon.Server;
+using Microsoft.Extensions.Logging.Abstractions;
 using Napoleon.Server.RequestReply;
 using Napoleon.Server.SharedData;
 
@@ -10,7 +9,6 @@ namespace NetworkBenchmark;
 [MemoryDiagnoser]
 public class DataSynchronizationTest
 {
-    private readonly Mock<IServer> _serverMock = new();
     private DataClient _client;
 
     private DataServer _server;
@@ -28,7 +26,7 @@ public class DataSynchronizationTest
         // apply 1000 changes to the data store
         for (var i = 0; i < 1000; i++) dataStore.PutValue("test", $"key{i:D5}", i);
 
-        _server = new(dataStore, _serverMock.Object);
+        _server = new(dataStore, new NullLogger<DataServer>());
 
 
         _server.Start(48555);

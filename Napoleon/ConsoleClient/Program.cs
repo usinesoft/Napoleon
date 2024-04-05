@@ -5,37 +5,8 @@ using Spectre.Console;
 
 namespace ConsoleClient;
 
-internal static class Program
+internal static partial class Program
 {
-    private static void ServerStatusToConsole(IEnumerable<NodeStatus> nodes)
-    {
-        var table = new Table();
-
-        table.Title("[deepskyblue1]Nodes in cluster[/]");
-        table.AddColumn("node");
-        table.AddColumn("status");
-        table.AddColumn("IP");
-        table.AddColumn("port");
-        table.AddColumn("data-version");
-        table.AddColumn("alive");
-
-
-        foreach (var server in nodes)
-        {
-            var alive = server.IsAlive;
-
-            var strAlive = alive ? "[green]alive[/]" : "[red]dead[/]";
-
-            var status = alive ? server.StatusInCluster.ToString() : " ";
-
-            table.AddRow(server.NodeId, status, server.TcpAddress, server.TcpClientPort.ToString(), "54656", strAlive);
-        }
-
-        AnsiConsole.WriteLine();
-
-        AnsiConsole.Write(table);
-    }
-
     private static async Task Main(string[] args)
     {
         if (args.Length == 0)
@@ -67,13 +38,14 @@ internal static class Program
 
             ServerStatusToConsole(clusterClient.ClusterStatus);
 
-            Console.WriteLine();
-            Console.WriteLine("available commands:");
-            Console.WriteLine();
-            Console.WriteLine("collection.key=value");
-            Console.WriteLine("collection.key");
-            Console.WriteLine("delete collection.key");
-            Console.WriteLine("exit");
+            DisplayHelp();
+            //Console.WriteLine();
+            //Console.WriteLine("available commands:");
+            //Console.WriteLine();
+            //Console.WriteLine("collection.key=value");
+            //Console.WriteLine("collection.key");
+            //Console.WriteLine("delete collection.key");
+            //Console.WriteLine("exit");
 
             Console.Write(">");
             var command = Console.ReadLine();
