@@ -27,7 +27,7 @@ public sealed class ClusterClient : IDisposable
     /// <summary>
     ///     Maximum retries if first connection fails
     /// </summary>
-    private readonly int ConnectionAttempts = 5;
+    private const int ConnectionAttempts = 5;
 
     private NormalizedAddress? _lastSuccessfulConnection;
     private RawClient? _rawClient;
@@ -44,7 +44,7 @@ public sealed class ClusterClient : IDisposable
         {
             lock (_statusLock)
             {
-                return new(_clusterStatus);
+                return [.._clusterStatus];
             }
         }
     }
@@ -78,6 +78,8 @@ public sealed class ClusterClient : IDisposable
             {
                 connected = true;
                 _lastSuccessfulConnection = normalized;
+
+                ConnectionChanged?.Invoke(this, new ConnectionChanged($"{normalized.Host}:{normalized.Port}"));
                 break;
             }
         }
@@ -237,4 +239,17 @@ public sealed class ClusterClient : IDisposable
 
         _myCopyOfData.ApplyChanges(changes);
     }
+
+    public event EventHandler<ConnectionChanged> ConnectionChanged;
+}
+
+
+public class ConnectionChanged : EventArgs
+{
+    public ConnectionChanged(string connectionInfo)
+    {
+        ConnectionInfo = connectionInfo;
+    }
+
+    public string ConnectionInfo { get; private set; }
 }

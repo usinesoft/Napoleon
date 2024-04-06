@@ -71,7 +71,7 @@ public sealed class DataServer : IDisposable
     {
         if (Coordinator?.MyStatus != StatusInCluster.Leader)
             throw new NotSupportedException(
-                $"A request to change data was received by a node which is not the leader. Status = {Coordinator.MyStatus}");
+                $"A request to change data was received by a node which is not the leader. Status = {Coordinator?.MyStatus}");
     }
 
     /// <summary>
@@ -96,7 +96,7 @@ public sealed class DataServer : IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError($"Exception while deleting a value:{e.Message}");
+            _logger.LogError("Exception while deleting a value:{err}", e.Message);
             throw;
         }
     }
@@ -126,7 +126,7 @@ public sealed class DataServer : IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogDebug($"Exception when writing a value:{e.Message}");
+            _logger.LogDebug("Exception when writing a value:{msg}", e.Message);
             throw;
         }
     }
@@ -140,7 +140,7 @@ public sealed class DataServer : IDisposable
     {
         _logger.LogDebug("Request to get cluster status");
 
-        var status = Coordinator.AllNodes();
+        var status = Coordinator?.AllNodes() ?? Array.Empty<NodeStatus>();
 
         return Task.FromResult<string?>(JsonSerializer.Serialize(status,
             SerializationContext.Default.NodeStatusArray));
@@ -151,7 +151,7 @@ public sealed class DataServer : IDisposable
     ///     Used for data synchronization. Get all the changes between two versions.
     ///     Two modes:
     ///     - return the ordered list of changes even if empty
-    ///     - return non empty list of changes or await for data to be changed (the caller is already synchronized)
+    ///     - return not empty list of changes or await for data to be changed (the caller is already synchronized)
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -161,7 +161,7 @@ public sealed class DataServer : IDisposable
 
         var blockIfNoChange = request.GetBool("blockIfNoChange", false);
 
-        await Coordinator.WaitSyncingEnd(); // in case the server is in the middle of a synchronization operation
+        await Coordinator!.WaitSyncingEnd(); // in case the server is in the middle of a synchronization operation
 
         var changes = _dataStore.GetChangesSince(startVersion);
 
@@ -189,7 +189,7 @@ public sealed class DataServer : IDisposable
 
 
     /// <summary>
-    ///     Start the server (non blocking)
+    ///     Start the server (non-blocking)
     /// </summary>
     /// <param name="port">A specific port or 0 if a free port will be selected automatically</param>
     /// <exception cref="ApplicationException"></exception>

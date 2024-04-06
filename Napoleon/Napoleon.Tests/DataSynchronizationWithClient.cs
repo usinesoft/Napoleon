@@ -128,8 +128,25 @@ public class DataSynchronizationWithClient
 
         Assert.IsFalse(found);
 
+        // create a new client
+        ClusterClient client1 = new();
+
+        await client1.Connect(follower1.ClusterServer.MyNodeId!);
+        
+        // the new client should automatically synchronize
+        (_, found) = client1.Data.TryGetScalarValue<int>("stuff", "02");
+        Assert.IsFalse(found);
+
+        (val, found) = client1.Data.TryGetScalarValue<bool>("stuff", "01");
+
+        Assert.IsTrue(found);
+        Assert.IsTrue(val);
+
+        
+
         // stop all
         client.Dispose();
+        client1.Dispose();
 
         foreach (var server in servers) server.Dispose();
 

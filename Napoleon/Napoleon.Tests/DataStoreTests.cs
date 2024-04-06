@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Napoleon.Server.Messages;
 using Napoleon.Server.SharedData;
 
@@ -230,5 +231,62 @@ public class DataStoreTests
         newcomer.ApplyChanges(changesFromMessage);
 
         Assert.That(DataStoresAreIdentical(newcomer, followerData));
+    }
+
+    
+    [Test]
+    public void Store_restore_changes_with_persistence_engine()
+    {
+        var store = new DataStore();
+
+        store.PutValue("A", "a", true); // version 1
+        store.PutValue("A", "a1", true); // version 2
+        store.PutValue("B", "b", "what a wonderful world"); // version 3
+        store.PutValue("B", "b", "the sky is blue"); //version 4
+
+        store.DeleteValue("B", "b"); // version 5
+
+        Assert.That(store.GlobalVersion, Is.EqualTo(5));
+
+        const string dataDirectory = "test_data";
+        
+        // reset the data directory
+        if (Directory.Exists(dataDirectory))
+        {
+            Directory.Delete(dataDirectory, true);
+        }
+        
+        Directory.CreateDirectory(dataDirectory);
+        
+
+        var persistenceEngine = new PersistenceEngine(new NullLogger<PersistenceEngine>());
+
+        persistenceEngine.SaveData(store, dataDirectory);
+
+        var newStore = new DataStore();
+        persistenceEngine.LoadData(newStore, dataDirectory);
+        Assert.That(newStore.GlobalVersion, Is.EqualTo(5));
+
+        var (bValue, found) = newStore.TryGetScalarValue<bool>("A", "a1");
+
+        Assert.That(found, Is.True);
+        Assert.That(bValue, Is.True);
+
+        var deletedValue = newStore.TryGetValue<string>("B", "b");
+        Assert.That(deletedValue, Is.Null);
+
+        var newVersion = newStore.GlobalVersion+1;
+
+        //save a change then reload 
+        persistenceEngine.SaveChange(new Item{Collection = "A", Key = "a1", IsDeleted = true, Version = newVersion, Value = JsonDocument.Parse("null").RootElement}, dataDirectory);
+
+        newStore = new DataStore();
+        persistenceEngine.LoadData(newStore, dataDirectory);
+
+        (_, found) = newStore.TryGetScalarValue<bool>("A", "a1");
+
+        Assert.That(found, Is.False);
+        Assert.That(newStore.GlobalVersion, Is.EqualTo(newVersion));
+
     }
 }

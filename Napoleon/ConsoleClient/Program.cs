@@ -18,6 +18,8 @@ internal static partial class Program
 
             var clusterClient = new ClusterClient();
 
+            clusterClient.ConnectionChanged += (obj, evt) => Console.Title = $"Connected to {evt.ConnectionInfo}";
+
             while (!connected)
                 try
                 {
@@ -39,13 +41,7 @@ internal static partial class Program
             ServerStatusToConsole(clusterClient.ClusterStatus);
 
             DisplayHelp();
-            //Console.WriteLine();
-            //Console.WriteLine("available commands:");
-            //Console.WriteLine();
-            //Console.WriteLine("collection.key=value");
-            //Console.WriteLine("collection.key");
-            //Console.WriteLine("delete collection.key");
-            //Console.WriteLine("exit");
+            
 
             Console.Write(">");
             var command = Console.ReadLine();
@@ -57,74 +53,5 @@ internal static partial class Program
                 command = Console.ReadLine();
             }
         }
-    }
-
-    private static async Task ProcessCommand(string command, ClusterClient clusterClient)
-    {
-        command = command.Trim().ToLower();
-
-        var success = false;
-
-        if (command.Contains("="))
-        {
-            var parts = command.Split('=', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 2)
-            {
-                var kv = parts[0].Split('.', StringSplitOptions.RemoveEmptyEntries);
-                if (kv.Length == 2)
-                {
-                    var value = parts[1];
-                    var collection = kv[0];
-                    var key = kv[1];
-
-                    var writeClient = await clusterClient.GetLeaderDataClient();
-
-                    try
-                    {
-                        var jn = JsonNode.Parse(value);
-                        await writeClient.PutValue(collection, key, jn);
-                        Console.WriteLine("done");
-                        success = true;
-                    }
-                    catch (Exception)
-                    {
-                        Console.WriteLine($"{value} is not a valid json value");
-                    }
-                }
-            }
-        }
-        else if (command.StartsWith("delete"))
-        {
-            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 2)
-            {
-                var kv = parts[1].Split('.', StringSplitOptions.RemoveEmptyEntries);
-                if (kv.Length == 2)
-                {
-                    var collection = kv[0];
-                    var key = kv[1];
-
-                    var writeClient = await clusterClient.GetLeaderDataClient();
-                    await writeClient.DeleteValue(collection, key, CancellationToken.None);
-                    Console.WriteLine("done");
-                    success = true;
-                }
-            }
-        }
-        else if (command.Contains(".")) //get value
-        {
-            var kv = command.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            if (kv.Length == 2)
-            {
-                var collection = kv[0];
-                var key = kv[1];
-
-                var jsonValue = clusterClient.Data.TryGetValue(collection, key);
-                Console.WriteLine(jsonValue.ToString());
-                success = true;
-            }
-        }
-
-        if (!success) Console.WriteLine("Invalid command");
     }
 }

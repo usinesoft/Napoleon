@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
 namespace Napoleon.Server.Tools;
@@ -52,7 +53,10 @@ public record NormalizedAddress(string Host, int Port)
             var entry = Dns.GetHostEntry(host);
             if (entry.AddressList.Length == 0)
                 throw new ArgumentException($"Can not resolve host specification:{host}");
-            ip = entry.AddressList[0].MapToIPv4();
+            
+            ip = Array.Find(entry.AddressList, x=>x.AddressFamily == AddressFamily.InterNetwork);
+
+            if (ip == null) throw new ArgumentException($"Can not find IPv4 address for {host}");
         }
 
 

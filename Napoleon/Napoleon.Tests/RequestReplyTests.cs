@@ -11,19 +11,21 @@ namespace Napoleon.Tests;
 
 public class RequestReplyTests
 {
-    private readonly Mock<ICoordinator> _serverMock = new();
-
+    
 
     [Test]
     public async Task Client_writes_and_reads_data_with_tcp()
     {
-        _serverMock.Setup(s => s.MyStatus).Returns(StatusInCluster.Leader);
-
+        
 
         var dataStore = new DataStore();
 
-        using var dataServer = new DataServer(dataStore,  new NullLogger<DataServer>());
+        var coordinatorMock = new Mock<ICoordinator>();
+        coordinatorMock.Setup(s => s.MyStatus).Returns(StatusInCluster.Leader);
 
+
+        using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
+        dataServer.Coordinator = coordinatorMock.Object;
 
         var port = dataServer.Start(0);
 
@@ -111,7 +113,12 @@ public class RequestReplyTests
     {
         var dataStore = new DataStore();
 
+        var coordinatorMock = new Mock<ICoordinator>();
+        coordinatorMock.Setup(s => s.MyStatus).Returns(StatusInCluster.Follower);
+
+
         using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
+        dataServer.Coordinator = coordinatorMock.Object;
 
         var port = dataServer.Start(0);
         await Task.Delay(100);
@@ -138,7 +145,12 @@ public class RequestReplyTests
     {
         var dataStore = new DataStore();
 
+        var coordinatorMock = new Mock<ICoordinator>();
+        coordinatorMock.Setup(s => s.MyStatus).Returns(StatusInCluster.Follower);
+
+
         using var dataServer = new DataServer(dataStore, new NullLogger<DataServer>());
+        dataServer.Coordinator = coordinatorMock.Object;
 
         var port = dataServer.Start(0);
         await Task.Delay(100);
