@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34525.116
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HugeCsv", "HugeCsv\HugeCsv.csproj", "{5F187870-DF8D-4EF7-8C68-9511874832C2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HugeCsv", "HugeCsv\HugeCsv.csproj", "{5F187870-DF8D-4EF7-8C68-9511874832C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HugeCsv.Tests", "HugeCsv.Tests\HugeCsv.Tests.csproj", "{C62ACA3B-2FE2-476F-9684-100FE91BF01D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{5F187870-DF8D-4EF7-8C68-9511874832C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5F187870-DF8D-4EF7-8C68-9511874832C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5F187870-DF8D-4EF7-8C68-9511874832C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C62ACA3B-2FE2-476F-9684-100FE91BF01D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C62ACA3B-2FE2-476F-9684-100FE91BF01D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C62ACA3B-2FE2-476F-9684-100FE91BF01D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C62ACA3B-2FE2-476F-9684-100FE91BF01D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

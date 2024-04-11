@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HugeCsv": {
+      "commandName": "Project",
+      "commandLineArgs": "e:\\csv\\business-price-indexes-december-2023.csv"
+    }
+  }
+}

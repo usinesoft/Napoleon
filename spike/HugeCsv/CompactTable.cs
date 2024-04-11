@@ -1,20 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 using HugeCsv.Values;
 
 namespace HugeCsv
 {
     public class CompactTable
     {
+        /// <summary>
+        /// If a primary key is present 
+        /// </summary>
+        private readonly Dictionary<IKeyValue, uint> _positionByPrimaryKey = new();
+
         private readonly List<IKeyValue?> _distinctValues = new(100_000);
 
         private readonly Dictionary<IKeyValue, uint> _positionForValue = [];
 
-        private uint _lastPosition = 256;
+        private uint _lastPosition = 0;
 
         private readonly List<uint[]> _rows  = new(100_000);
 
@@ -25,13 +26,13 @@ namespace HugeCsv
                 return position;
             }
 
-            _lastPosition++;
-
             _positionForValue[kv] = _lastPosition;
 
             _distinctValues.Add(kv);
 
-            return _lastPosition;
+            _lastPosition++;
+            
+            return _lastPosition-1;
         }
 
         private IKeyValue GetKeyValue(uint value)
@@ -41,9 +42,12 @@ namespace HugeCsv
 
         private readonly TableSchema _schema;
 
+        private readonly int _indexOfPrimaryKey;
+
         public CompactTable(TableSchema schema)
         {
             _schema = schema;
+            _indexOfPrimaryKey = schema.GetIndexOfPrimaryKey();
         }
 
         public void AddRow(IKeyValue[] row)
@@ -61,6 +65,11 @@ namespace HugeCsv
             }
 
             _rows.Add(compactRow);
+
+            if (_indexOfPrimaryKey != -1)
+            {
+                _positionByPrimaryKey[row[_indexOfPrimaryKey]] = (uint)(_rows.Count - 1);
+            }
         }
 
         /// <summary>
@@ -86,6 +95,15 @@ namespace HugeCsv
             return result;
         }
 
+        public JsonObject GetByPrimaryKey(IKeyValue kv)
+        {
+            if (_indexOfPrimaryKey == -1) throw new NotSupportedException("No primary key defined");
+
+            var position = _positionByPrimaryKey[kv];
+
+            return GetItem((int)position);
+        }
+
         public override string ToString()
         {
             var result = new StringBuilder();
@@ -106,15 +124,7 @@ namespace HugeCsv
 
     }
 
-    /// <summary>
-    /// Ordered description of the columns in a table
-    /// </summary>
-    public class TableSchema
-    {
-        public IList<ColumnInfo> Columns { get; } = new List<ColumnInfo>();
-    }
-
-    public record ColumnInfo(string Name, KeyValueType Type);
+    public record ColumnInfo(string Name, KeyValueType Type, bool IsPrimaryKey = false);
 
 
 }

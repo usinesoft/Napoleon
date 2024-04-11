@@ -18,7 +18,7 @@ public class CsvImporter
         _progressReporter = action;
     }
 
-    public CompactTable ProcessFile(string fileName)
+    public CompactTable ProcessFile(string fileName, string? primaryKeyColumn = null)
     {
         var separator = ',';
 
@@ -26,18 +26,26 @@ public class CsvImporter
 
         int lineCount = 0;
 
+        
         var first = true;
         foreach (var line in File.ReadLines(fileName))
         {
-            if (first) // process the header
+            // process the header
+            if (first) 
             {
                 separator = DetectSeparator(line);
                 var columns = SplitCsvLine(line, separator);
 
                 _schema = new();
-                foreach (var column in columns)
+                for (var index = 0; index < columns.Count; index++)
+                {
+                    var column = columns[index];
+                    bool isPrimaryKey = primaryKeyColumn != null && column == primaryKeyColumn;
                     // in the final form null can not be the type of column
-                    _schema.Columns.Add(new(column, KeyValueType.Null));
+                    _schema.Columns.Add(new(column, KeyValueType.Null, isPrimaryKey));
+
+                }
+
 
                 first = false;
 
@@ -47,16 +55,19 @@ public class CsvImporter
             }
 
 
+            // process the data rows
             var values = SplitCsvLine(line, separator);
 
             var typedValues = new List<IKeyValue>();
 
+            
             for (var col = 0; col < _schema!.Columns.Count; col++)
             {
                 var value = values[col];
                 var kv = ValueFactory.Parse(value);
 
                 typedValues.Add(kv);
+
 
                 ////////////////////////////////////////////
                 // adjust schema types 
@@ -86,12 +97,13 @@ public class CsvImporter
             }
 
             table!.AddRow(typedValues.ToArray());
+            
         }
 
         return table!;
     }
 
-    public static char DetectSeparator(string header)
+    private static char DetectSeparator(string header)
     {
         if (string.IsNullOrWhiteSpace(header))
             throw new ArgumentException($"'{nameof(header)}' cannot be null or whitespace.", nameof(header));
@@ -106,7 +118,7 @@ public class CsvImporter
         throw new FormatException($"Can not detect column separator from header {header}");
     }
 
-    public static List<string> SplitCsvLine(string line, char separator)
+    private static List<string> SplitCsvLine(string line, char separator)
     {
         var stringValues = new List<string>();
 
@@ -115,6 +127,7 @@ public class CsvImporter
         var currentValue = new StringBuilder();
 
         foreach (var c in line)
+        {
             if (c == '"') // ignore separator inside "" according to csv specification
             {
                 ignoreSeparator = !ignoreSeparator;
@@ -129,15 +142,10 @@ public class CsvImporter
             {
                 currentValue.Append(c);
             }
-
-        // add the last column
-        if (!line.EndsWith(separator))
-        {
-            var stringValue = currentValue.ToString();
-
-            stringValues.Add(stringValue);
         }
-
+        
+        stringValues.Add(currentValue.ToString());
+        
         return stringValues;
     }
 }
